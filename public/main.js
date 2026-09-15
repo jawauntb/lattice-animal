@@ -10,7 +10,10 @@ const TINT = [
 const CREAM = "242, 238, 230";
 const NIGHT = { r: 6, g: 8, b: 16 };
 
-// ─── Verses (rotate at soft cadence) ─────────────────────────────────────────
+// ─── Verses ──────────────────────────────────────────────────────────────────
+// Bookends frame the demo's own philosophy; the middle rotates ambient lines.
+const OPENING_VERSE = "no mind sees the whole — only its neighbors";
+const CLOSING_VERSE = "not from a smarter mind, but from enough of them checking each other";
 const VERSES = [
   "no channel but movement · no commitment but position",
   "a mind for a single cell — and single cells don't count",
@@ -118,7 +121,10 @@ class Mind {
     this.cilia = 6 + (hash((x * 13) | 0, (y * 17) | 0) % 5);
     // birth-flash timer (frames of glow after committing)
     this.commitFlash = 0;
+    this.commitChord = 1;      // set at the moment of commit — how many nearby minds committed together (an interference amplifier)
     this.bornAt = 0;
+    // Neighbor-mean direction (updated in step). Used for the dual-vector display.
+    this.nMeanX = 0; this.nMeanY = 0;
   }
 }
 
@@ -213,6 +219,7 @@ function step() {
     if (N.length === 0) continue;
     const dists = [];
     let sumSin4 = 0, sumCos4 = 0;
+    let sumX = 0, sumY = 0;
     for (const j of N) {
       const dx = minds[j].x - m.x;
       const dy = minds[j].y - m.y;
@@ -221,11 +228,16 @@ function step() {
       const a = Math.atan2(dy, dx);
       sumSin4 += Math.sin(4 * a);
       sumCos4 += Math.cos(4 * a);
+      sumX += dx; sumY += dy;
     }
     dists.sort((a, b) => a - b);
     const median = dists[Math.floor(dists.length / 2)];
     m.localS = clamp(median, CFG.spacingMin, CFG.spacingMax);
     m.localT = Math.atan2(sumSin4, sumCos4) / 4;
+    // Neighbor-mean direction, EMA-smoothed for a legible arrow.
+    const nx = sumX / N.length, ny = sumY / N.length;
+    m.nMeanX = m.nMeanX * 0.85 + nx * 0.15;
+    m.nMeanY = m.nMeanY * 0.85 + ny * 0.15;
     meanS += m.localS;
     meanC += Math.cos(4 * m.localT);
     meanSn += Math.sin(4 * m.localT);
@@ -339,6 +351,8 @@ function step() {
     m.phase += 0.03 + 0.02 * m.orgSeed;
   }
 
+  // First pass: mark this tick's fresh commits so we can measure chord vs arpeggio.
+  const freshCommits = [];
   for (const m of minds) {
     const t = gaugeToWorld(m.gx, m.gy);
     const d = Math.hypot(m.x - t.x, m.y - t.y);
@@ -346,13 +360,43 @@ function step() {
       m.settle = Math.min(CFG.commitFrames, m.settle + 1);
       if (m.settle >= CFG.commitFrames && !m.committed) {
         m.committed = true;
-        m.commitFlash = 45;  // brief born-flash
+        m.commitFlash = 45;
+        m.bornAt = state.frame;
+        freshCommits.push(m);
       }
     } else if (d > CFG.releaseDist) {
       m.settle = Math.max(0, m.settle - 2);
       if (m.settle === 0) m.committed = false;
     }
     if (m.commitFlash > 0) m.commitFlash--;
+  }
+  // Chord interference: any freshly committed mind whose kin also committed within
+  // this tick or the previous 3 gets a brighter, longer birth-flash. Truly
+  // simultaneous commits are the "chord"; staggered ones remain the "arpeggio."
+  const CHORD_WINDOW = 3;
+  const CHORD_RADIUS = state.gauge.s * 1.6;
+  for (const m of freshCommits) {
+    let kin = 1;
+    for (const o of minds) {
+      if (o === m) continue;
+      if (o.committed && state.frame - o.bornAt <= CHORD_WINDOW) {
+        const dx = o.x - m.x, dy = o.y - m.y;
+        if (dx * dx + dy * dy < CHORD_RADIUS * CHORD_RADIUS) kin++;
+      }
+    }
+    m.commitChord = kin;
+    m.commitFlash = Math.round(45 * Math.min(2.5, 0.9 + 0.35 * kin));
+    // Retroactively brighten the just-committed kin who fired in the window
+    for (const o of minds) {
+      if (o === m || !o.committed) continue;
+      if (state.frame - o.bornAt <= CHORD_WINDOW && o.commitChord < kin) {
+        const dx = o.x - m.x, dy = o.y - m.y;
+        if (dx * dx + dy * dy < CHORD_RADIUS * CHORD_RADIUS) {
+          o.commitChord = kin;
+          o.commitFlash = Math.max(o.commitFlash, Math.round(45 * Math.min(2.5, 0.9 + 0.35 * kin)));
+        }
+      }
+    }
   }
 
   const key = (gx, gy) => `${gx},${gy}`;
@@ -405,10 +449,23 @@ function step() {
   }
 
   state.verseTimer++;
-  if (state.verseTimer > 60 * 14) {
+  // Bookend: opening line pins the first ~8 seconds; closing line appears
+  // and stays once a real body has emerged (≥ 10 cells in the largest animal).
+  if (state.frame === 1) {
+    state.verseIndex = -1;   // sentinel for OPENING
+    setVerseText(OPENING_VERSE);
+  } else if (state.verseIndex === -1 && state.frame > 60 * 9) {
+    state.verseIndex = 0;
+    setVerseText(VERSES[0]);
+    state.verseTimer = 0;
+  } else if (state.verseIndex !== -2 && state.largestAnimal >= 10) {
+    state.verseIndex = -2;
+    setVerseText(CLOSING_VERSE);
+    state.verseTimer = 0;
+  } else if (state.verseIndex >= 0 && state.verseTimer > 60 * 14) {
     state.verseTimer = 0;
     state.verseIndex = (state.verseIndex + 1) % VERSES.length;
-    updateVerse();
+    setVerseText(VERSES[state.verseIndex]);
   }
 
   state._delaunay = delaunay;
@@ -708,6 +765,35 @@ function drawField() {
   ctx.shadowBlur = 3;
   for (const m of minds) {
     const sp = Math.hypot(m.vx, m.vy);
+    // === Dual-vector divergence: what the neighborhood suggests vs. what
+    // the mind actually does. Wildly splayed in chaos, converging as the
+    // gauge is negotiated — a direct visual of DVFP's key measurement.
+    if (!m.committed) {
+      const nsp = Math.hypot(m.nMeanX, m.nMeanY);
+      if (nsp > 0.5) {
+        const nlen = Math.min(28, nsp * 0.35);
+        const ex = m.x + (m.nMeanX / nsp) * nlen;
+        const ey = m.y + (m.nMeanY / nsp) * nlen;
+        // Fade this hint arrow as it aligns with the actual velocity — the
+        // convergence itself is the story.
+        let alignAlpha = 0.35;
+        if (sp > 0.1) {
+          const dot = (m.vx * m.nMeanX + m.vy * m.nMeanY) / (sp * nsp);
+          alignAlpha = 0.4 * (1 - Math.max(0, dot));  // fades as vectors agree
+        }
+        if (alignAlpha > 0.03) {
+          ctx.strokeStyle = `rgba(140, 195, 255, ${alignAlpha})`;
+          ctx.lineWidth = 0.75;
+          ctx.setLineDash([2.5, 3]);
+          ctx.beginPath();
+          ctx.moveTo(m.x, m.y);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+    }
+
     if (sp < 0.08) continue;
     let len = Math.max(CFG.vectorMin, Math.min(CFG.vectorMax, sp * CFG.vectorScale));
     const ux = m.vx / sp, uy = m.vy / sp;
@@ -768,15 +854,51 @@ function drawMinds() {
       ctx.stroke();
     }
 
-    // Birth flash — an expanding cream ring at the moment of committing.
+    // Birth flash — an expanding cream ring at the moment of committing. Chord
+    // events (kin >= 2) fire brighter, wider, longer.
     if (m.commitFlash > 0) {
-      const f = m.commitFlash / 45;
-      const ringR = (1 - f) * gs * 0.5 + 4;
-      ctx.strokeStyle = `rgba(${CREAM}, ${f * 0.9})`;
-      ctx.lineWidth = 1 + 1.2 * f;
+      const chord = m.commitChord || 1;
+      const life = 45 * Math.min(2.5, 0.9 + 0.35 * chord);
+      const f = m.commitFlash / life;
+      const ringR = (1 - f) * gs * (0.5 + 0.12 * (chord - 1)) + 4;
+      const intensity = Math.min(1, 0.7 + 0.18 * chord);
+      ctx.strokeStyle = `rgba(${CREAM}, ${f * intensity})`;
+      ctx.lineWidth = 1 + 1.4 * f + 0.4 * (chord - 1);
       ctx.beginPath();
       ctx.arc(m.x, m.y, ringR, 0, Math.PI * 2);
       ctx.stroke();
+      // Chord echo — a second inner ring for real chord events
+      if (chord >= 2) {
+        ctx.strokeStyle = `rgba(${CREAM}, ${f * 0.4})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, ringR * 0.55, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // Ghost-self rosette: for uncommitted minds, faintly render their four
+    // 4-adjacent candidate cells alongside their current best pick, dimmed by
+    // how much less good those alternatives look. Collapses to one at commit.
+    if (!m.committed && state.frame > 20) {
+      const targetX = m.x - (m.x - gaugeToWorld(m.gx, m.gy).x);
+      // (target coords for the current pick)
+      const cur = gaugeToWorld(m.gx, m.gy);
+      const dCur = Math.hypot(cur.x - m.x, cur.y - m.y);
+      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+      for (const [dx, dy] of dirs) {
+        const alt = gaugeToWorld(m.gx + dx, m.gy + dy);
+        const dAlt = Math.hypot(alt.x - m.x, alt.y - m.y);
+        // weight by how close the alt is relative to the current pick (Softmax‑ish)
+        const w = Math.exp(-(dAlt - dCur) / (gs * 0.35));
+        if (w < 0.08) continue;
+        const a = 0.12 * w * (1 - m.settle / CFG.commitFrames);
+        if (a < 0.01) continue;
+        ctx.fillStyle = `rgba(${CREAM}, ${a})`;
+        ctx.beginPath();
+        ctx.arc(alt.x, alt.y, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     // Outer soft glow
@@ -829,11 +951,12 @@ function tick() {
   const e = state.minds.length ? (se / state.minds.length) : 0;
   el("t-entropy").textContent = e.toFixed(3);
 }
-function updateVerse() {
+function setVerseText(text) {
   const v = document.getElementById("verse");
+  if (!v) return;
   v.style.opacity = 0;
   setTimeout(() => {
-    v.textContent = VERSES[state.verseIndex];
+    v.textContent = text;
     v.style.opacity = 0.85;
   }, 800);
 }
