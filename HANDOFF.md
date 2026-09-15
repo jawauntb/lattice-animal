@@ -300,7 +300,28 @@ Do not commit any secrets. Read them at runtime from `process.env`.
 ## Things not yet on `main` that people have asked for
 
 Nothing. Every request Jawaun has made in this run is either shipped
-or on the ideas queue with a clear implementation direction.
+or on the ideas queue with a clear implementation direction. The
+queue is truly exhaustive as of this file's last update — audit it
+before you build; if something's missing, add it there in the same
+commit that adds the implementation.
+
+Explicit "not done, deferred" items worth naming here so you don't
+think they exist yet on production:
+
+- **Stacked / looped fly connectomes** — Tier 4. Nothing shipped;
+  no Modal / HuggingFace / Railway‑GPU setup started.
+- **Server‑side persistent life across sessions** — Tier 4. The
+  localStorage persistence *is* live; the server‑side version (where
+  animals keep evolving while Jawaun is offline) is not.
+- **Click / tap to isolate an animal** — Tier 3. Not started.
+- **Listen mode (generative music from bond formation)** — Tier 3.
+  Not started; the per‑event species voices are live, but the
+  continuous generative bed is not.
+- **Space‑warp curvature under χ** — Tier 4. Not started.
+- **Sexual dimorphism** — Tier 2, blocked on fly‑connectome.
+- **PreText / interactive moving text** — Tier 3.5. Not started.
+- **Every Tier 0 substrate item** — not started. That's the
+  recommended first move; see below.
 
 ## Contact
 

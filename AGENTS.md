@@ -362,6 +362,21 @@ building decoration. Concretely:
       wandering, spawning, dying while Jawaun's away and he comes
       back to a different world each time.
 
+### Tier 3.5 — text as another interactive substrate
+
+- [ ] **PreText / interactive moving text (from objetd'art).** Text in
+      the narrator drawer and modals should be able to *move* — words
+      drift on subtle gravity, respond to hover, phase between
+      typewriter and dissolve. Look at objetd'art's own interactive
+      typography for the reference. On the canvas itself, occasional
+      floating word‑fragments could drift between minds and get
+      "caught" by them, briefly re‑voicing that species.
+- [ ] **objetd'art /quarks, /atoms, /dna interaction paradigms.**
+      Sourced from Jawaun's own gallery (`~/objetdart_proj`). Read
+      the corresponding page's source to distill the specific
+      interaction that would slot into this demo. Skip anything that
+      breaks the lattice‑animal invariant.
+
 ### Tier 5 — copy and framing (very cheap, high leverage)
 
 - [ ] **Vector‑to‑scalar collapse caption** — a new verse for the
