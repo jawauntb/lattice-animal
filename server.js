@@ -56,9 +56,9 @@ app.get("/think/status", thinkStatus);
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: isProd ? '1h' : 0,
   etag: true,
-  setHeaders: (res) => {
-    if (!isProd) {
-      res.setHeader('Cache-Control', 'no-store');
+  setHeaders: (res, filePath) => {
+    if (!isProd || filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-store");
     }
   },
 }));

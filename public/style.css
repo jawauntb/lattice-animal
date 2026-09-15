@@ -122,6 +122,10 @@ body {
   color: var(--ink);
 }
 .chrome > * { pointer-events: auto; touch-action: auto; }
+.chrome.top,
+.chrome.legend,
+.chrome.telemetry { z-index: 7; }
+.chrome.bottom { z-index: 8; }
 
 /* ── Top: brand + epigraph ────────────────────────────────────────────── */
 .top {
@@ -194,6 +198,7 @@ body {
 .action-btn.active .icon-muted { display: inline-block; }
 #btn-mute.active { color: var(--ink-faint); border-color: var(--line); }
 #btn-gap.active { color: var(--bound); border-color: var(--bound); }
+#btn-panels.active { color: var(--bound); border-color: var(--bound); }
 
 .legend .row.keys.tappable {
   display: flex;
@@ -306,12 +311,12 @@ body.panels-off .telemetry * {
 
 /* ── Bottom row: ? + verse-btn + menu ─────────────────────────────────── */
 .bottom {
-  z-index: 6;
+  z-index: 8;
   bottom: var(--safe-bot);
   left: var(--safe-left); right: var(--safe-right);
   padding: 0 28px 22px;
   display: grid;
-  grid-template-columns: 40px 1fr 40px;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
   align-items: center;
   gap: 12px;
 }
@@ -329,8 +334,10 @@ body.panels-off .telemetry * {
   font-family: inherit;
   border-radius: 999px;
   transition: background 160ms ease, border-color 160ms ease;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
+  overflow: hidden;
   backdrop-filter: blur(14px) saturate(1.15);
   -webkit-backdrop-filter: blur(14px) saturate(1.15);
   box-shadow: 0 8px 28px rgba(0,0,0,0.28);
@@ -348,13 +355,14 @@ body.panels-off .telemetry * {
   letter-spacing: 0.02em;
   font-variation-settings: "opsz" 36;
   opacity: 1;
-  transition: opacity 800ms ease;
+  transition: opacity 140ms ease;
   text-align: center;
   min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: min(68vw, 720px);
+  max-width: none;
   text-shadow: 0 1px 10px rgba(0,0,0,0.55);
 }
 .verse-btn .chevron {
@@ -387,7 +395,14 @@ body.panels-off .telemetry * {
 .info-btn:hover, .menu-btn:hover { background: rgba(255,255,255,0.07); border-color: rgba(230,234,246,0.45); }
 .info-btn:active, .menu-btn:active { transform: scale(0.96); }
 .info-btn { grid-column: 1; justify-self: start; font-style: italic; }
-.menu-btn { grid-column: 3; justify-self: end; display: inline-flex; }
+.menu-btn {
+  grid-column: 3;
+  justify-self: end;
+  display: inline-flex;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
 body.panels-off .menu-btn { color: var(--bound); border-color: var(--bound); }
 
 /* ── Mind hover tooltip ──────────────────────────────────────────────── */

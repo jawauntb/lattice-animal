@@ -39,7 +39,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="/style.css?v=15" />
 </head>
 <body>
   <canvas id="stage"></canvas>
@@ -70,6 +70,9 @@
         </button>
         <button class="action-btn" id="btn-gap" aria-label="Toggle chord or arpeggio" title="Chord: commits fire together (A)">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 5v14M12 8v11M17 3v16" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        </button>
+        <button class="action-btn" id="btn-panels" aria-expanded="true" aria-controls="legend telemetry" aria-label="Hide legend and telemetry" title="Hide the panels (H)">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
         </button>
       </div>
     </div>
@@ -242,7 +245,7 @@
       <ul>
         <li>Tap empty field to drop minds. Long‑press a committed cell to take it; the body tries to grow the remembered shape back.</li>
         <li>The chord / arpeggio button (A) changes only how commits look: together, or smeared across ticks.</li>
-        <li>H or the ⌇ button hides the legend and telemetry so the field can breathe. The choice stays.</li>
+        <li>H, the stacked-lines button next to pause, or ⌇ hides the legend and telemetry. The verse follows the field as it happens.</li>
         <li>Open the narrator and tap a morphospace shape to bias new births toward that inhabitant.</li>
       </ul>
 
@@ -263,7 +266,7 @@
     }
   }
   </script>
-  <script type="module" src="/main.js"></script>
+  <script type="module" src="/main.js?v=15"></script>
   <script>
     (function () {
       const scrim = document.getElementById('modal-scrim');
@@ -312,6 +315,7 @@
         if (window.__la && window.__la.toggleMute) window.__la.toggleMute();
       });
       document.getElementById('btn-gap').addEventListener('click', () => fireAction('gap'));
+      document.getElementById('btn-panels').addEventListener('click', () => fireAction('panels'));
       document.querySelectorAll('.tappable[data-action]').forEach((el) => {
         el.addEventListener('click', () => fireAction(el.dataset.action));
       });

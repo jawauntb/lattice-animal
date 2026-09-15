@@ -96,7 +96,7 @@ regress any of these.
 - Blowup notice (`.field-notice`) when the field is scaled or
   a frame is dropped to stay snappy
 - Colored translucent Voronoi membranes per mind (4‑hue tissue
-  palette for identity)
+  for seekers; committed cells fill with a cached nacre pattern)
 - Per‑animal color from a 12‑hue palette (stable across
   wander/fission/merge; two hues stay silent = "quiet species")
 - Cream perimeter outline around each animal, tinted by the animal's
@@ -159,8 +159,10 @@ regress any of these.
 - **Hover** a mind on desktop — floating blurb of its species, its
   state, and a one‑sentence plain‑language explanation
 - **?** button (bottom‑left) — full explainer modal
-- **H** / **⌇** menu button — hide or show legend and telemetry
-  (persisted as `la:panels`; phones start hidden)
+- **H** / top stacked-lines button / bottom **⌇** — hide or show
+  legend and telemetry. The verse pill no longer covers ⌇. Chrome
+  sits above loci (z-index 7–8). Persisted as `la:panels`; phones
+  start hidden. HTML is no-store so CSS/JS `?v=` busts land.
 - **▲** chevron on the verse — open/close narrator drawer
 - All keyboard shortcuts also work via tap buttons
 

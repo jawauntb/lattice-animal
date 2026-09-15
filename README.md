@@ -15,7 +15,8 @@ Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
 ## What you're watching
 
 - **Colored cells** — every Voronoi region is painted in its mind's tint,
-  drawn from the objetd'art tissue palette.
+  drawn from the objetd'art tissue palette. Committed cells carry a
+  baked nacre sheen (one 96px tile per hue, reused as a pattern).
 - **Vector cilia** — soft radial hairs plus a directional arrow showing
   the mind's intended next move. A dashed cool arrow shows what the
   mind's neighbor mean *would* suggest — wildly divergent in chaos,
@@ -109,7 +110,9 @@ still has a voice. Tap once so the browser will let the field speak.
 - **A** or the three‑bar button — chord vs arpeggio (look only)
 - **Narrator → inhabitants** — bias births toward a morphospace shape
 - **?** — open the full explainer
-- **H** or **⌇** — hide or show the legend and telemetry (persisted)
+- **H**, the stacked-lines button in the top cluster, or **⌇** — hide
+  or show the legend and telemetry (persisted). The verse updates with
+  the field instead of waiting a few seconds.
 
 ## Theory sources
 

@@ -1,6 +1,6 @@
 import { Delaunay } from "d3-delaunay";
-import * as audio from "/audio.js";
-import * as fly from "/connectome.js";
+import * as audio from "/audio.js?v=15";
+import * as fly from "/connectome.js?v=15";
 
 // ─── Palette (drawn from objetd'art tissue: cool + warm, muted, luminous) ────
 const TINT = [
@@ -27,6 +27,51 @@ const ANIMAL_HUES = [
 ];
 const CREAM = "242, 238, 230";
 const NIGHT = { r: 6, g: 8, b: 16 };
+const NACRE_SIZE = 96;
+const nacreTiles = new Map();
+const nacrePatterns = new Map();
+
+function bakeNacre(rgb) {
+  const hit = nacreTiles.get(rgb);
+  if (hit) return hit;
+  const S = NACRE_SIZE;
+  const c = document.createElement("canvas");
+  c.width = S;
+  c.height = S;
+  const g = c.getContext("2d");
+  const [r, gv, b] = rgb.split(",").map((n) => +n.trim());
+  g.fillStyle = `rgb(${rgb})`;
+  g.fillRect(0, 0, S, S);
+  const rad = g.createRadialGradient(S * 0.30, S * 0.26, 2, S * 0.48, S * 0.50, S * 0.72);
+  rad.addColorStop(0, "rgba(255, 255, 255, 0.26)");
+  rad.addColorStop(0.32, `rgba(${Math.min(255, r + 28)}, ${Math.min(255, gv + 22)}, ${Math.min(255, b + 18)}, 0.18)`);
+  rad.addColorStop(0.68, "rgba(160, 214, 255, 0.12)");
+  rad.addColorStop(1, `rgba(${r}, ${gv}, ${b}, 0)`);
+  g.fillStyle = rad;
+  g.fillRect(0, 0, S, S);
+  g.globalCompositeOperation = "lighter";
+  const band = g.createLinearGradient(0, S * 0.12, S, S * 0.88);
+  band.addColorStop(0, "rgba(160, 230, 255, 0)");
+  band.addColorStop(0.44, "rgba(170, 245, 220, 0.14)");
+  band.addColorStop(0.58, "rgba(255, 176, 210, 0.12)");
+  band.addColorStop(1, "rgba(255, 255, 255, 0)");
+  g.fillStyle = band;
+  g.fillRect(0, 0, S, S);
+  g.globalCompositeOperation = "source-over";
+  nacreTiles.set(rgb, c);
+  return c;
+}
+
+function nacreFill(ctx, rgb) {
+  let pat = nacrePatterns.get(rgb);
+  if (!pat) {
+    pat = ctx.createPattern(bakeNacre(rgb), "repeat");
+    nacrePatterns.set(rgb, pat);
+  }
+  return pat;
+}
+
+for (const rgb of TINT.concat(ANIMAL_HUES, [CREAM])) bakeNacre(rgb);
 const VALENCE_TINTS = [
   "134, 186, 168",
   "150, 178, 226",
@@ -819,14 +864,14 @@ function renderLocusPins() {
 
 function narrateLife({ short, long, kind = "life", x, y }) {
   // Living events are frequent. Keep them readable: one every few seconds.
-  if (state.frame - (state.narration.lastLifeFrame || -1e9) < 60 * 2.6) return;
+  if (state.frame - (state.narration.lastLifeFrame || -1e9) < 28) return;
   state.narration.lastLifeFrame = state.frame;
   narrate({ short, long, kind, x, y });
 }
 
 function narrate({ short, long, kind = "note", x, y }) {
   // Debounce: at least 20 frames between narrations so the reader can catch each.
-  if (state.frame - state.narration.lastNarratedFrame < 20) return;
+  if (state.frame - state.narration.lastNarratedFrame < 6) return;
   const at = locateNarration(x, y);
   state.narration.lastNarratedFrame = state.frame;
   state.narration.current = short;
@@ -2161,8 +2206,19 @@ function drawMembranes() {
       if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.fillStyle = `rgba(${TINT[m.tintIdx]}, ${alpha})`;
-    ctx.fill();
+    const pearl = m.committed && !state.perf.skipHeavy
+      ? (m.animalColor || TINT[m.tintIdx])
+      : null;
+    if (pearl) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.62, alpha + 0.10);
+      ctx.fillStyle = nacreFill(ctx, pearl);
+      ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.fillStyle = `rgba(${TINT[m.tintIdx]}, ${alpha})`;
+      ctx.fill();
+    }
   }
   ctx.restore();
 }
@@ -2585,16 +2641,29 @@ function drawMinds() {
       }
     }
 
-    // Outer soft glow
+    // Outer soft glow. Animal cores stamp a baked nacre tile — no per-frame
+    // gradient, no extra shadowBlur on the body.
     const glowTint = isAnimal ? (m.animalColor || CREAM) : tint;
     const glowA = m.cancer ? 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(t * 5)) : 0.9 * brightness;
-    ctx.shadowColor = `rgba(${glowTint}, ${glowA})`;
-    ctx.shadowBlur = isAnimal ? 18 : 10;
-    ctx.fillStyle = `rgba(${glowTint}, ${glowA})`;
     const outerR = (isAnimal ? 3.4 : 3.0) * breathScale;
-    ctx.beginPath();
-    ctx.arc(m.x, m.y, outerR, 0, Math.PI * 2);
-    ctx.fill();
+    if (isAnimal && !state.perf.skipHeavy) {
+      const tile = bakeNacre(m.animalColor || CREAM);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, outerR + 0.4, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.globalAlpha = glowA;
+      const s = outerR * 4.2;
+      ctx.drawImage(tile, m.x - s * 0.5, m.y - s * 0.5, s, s);
+      ctx.restore();
+    } else {
+      ctx.shadowColor = `rgba(${glowTint}, ${glowA})`;
+      ctx.shadowBlur = isAnimal ? 12 : 10;
+      ctx.fillStyle = `rgba(${glowTint}, ${glowA})`;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, outerR, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Crisp inner core
     ctx.shadowBlur = 0;
@@ -2728,7 +2797,7 @@ function setVerseText(text, instant) {
   setVerseText._t = setTimeout(() => {
     v.textContent = text;
     v.style.opacity = 1;
-  }, 800);
+  }, 120);
 }
 
 // ─── Loop ────────────────────────────────────────────────────────────────────
@@ -2783,11 +2852,15 @@ function togglePanels(force) {
     : !document.body.classList.contains("panels-on");
   document.body.classList.toggle("panels-on", next);
   document.body.classList.toggle("panels-off", !next);
-  const btn = document.getElementById("menu-btn");
-  if (btn) {
+  const label = next ? "Hide legend and telemetry" : "Show legend and telemetry";
+  const title = next ? "Hide the panels (H)" : "Show the panels (H)";
+  for (const id of ["menu-btn", "btn-panels"]) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
     btn.setAttribute("aria-expanded", String(next));
-    btn.setAttribute("aria-label", next ? "Hide legend and telemetry" : "Show legend and telemetry");
-    btn.title = next ? "Hide the panels (H)" : "Show the panels (H)";
+    btn.setAttribute("aria-label", label);
+    btn.title = title;
+    btn.classList.toggle("active", !next);
   }
   try { localStorage.setItem("la:panels", next ? "1" : "0"); } catch {}
   return next;

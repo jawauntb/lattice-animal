@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (iter 14 — voices, panels, deferred GPU letters).
+Last updated: 2026‑09‑15 (iter 15 — verse speed, hide chrome, nacre).
 
 ---
 
