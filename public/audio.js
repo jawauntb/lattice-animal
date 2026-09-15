@@ -7,6 +7,7 @@ let master = null;
 let compressor = null;
 let muted = false;
 const lastPlayTs = new Map();
+let lastHeard = null;
 
 // The 10 species + their colors (matched to ANIMAL_HUES rgb strings in main.js).
 // restingV is the Levin membrane-voltage band: negative = hyperpolarized
@@ -66,7 +67,8 @@ function pullVTowardNeighbors(mind, neighbors, radius, rate) {
 
 const POLICIES = {
   // Depolarizes neighbors — induces fission at the bond.
-  lion(mind, neighbors) {
+  lion(mind, neighbors, ctx) {
+    if (ctx.frame && (ctx.frame & 1)) return;
     for (const nb of neighbors) nb.V = clampV(nb.V + (0.02 - nb.V) * 0.03);
   },
   // Spawns faster than mean, encroaching — flags itself for a spawn bias.
@@ -75,6 +77,7 @@ const POLICIES = {
   },
   // Long-range V matching — forms tribes with matching V.
   wolf(mind, neighbors, ctx) {
+    if (ctx.frame && (ctx.frame % 3)) return;
     pullVTowardNeighbors(mind, ctx.minds || neighbors, 180, 0.02);
   },
   // Anchors neighbors' V, resists movement.
@@ -83,6 +86,7 @@ const POLICIES = {
   },
   // Long, slow V synchrony across a large radius.
   whale(mind, neighbors, ctx) {
+    if (ctx.frame && (ctx.frame % 4)) return;
     pullVTowardNeighbors(mind, ctx.minds || neighbors, 260, 0.008);
   },
   // Pulses V rhythmically — entrains neighbors' commit timing.
@@ -137,7 +141,9 @@ export function init() {
     compressor.release.value = 0.12;
     master.connect(compressor);
     compressor.connect(ctx.destination);
-  } catch (e) { console.warn("audio unavailable", e); }
+  } catch {
+    ctx = null;
+  }
 }
 
 export function resume() {
@@ -146,6 +152,9 @@ export function resume() {
 
 export function setMuted(v) { muted = !!v; }
 export function isMuted() { return muted; }
+export function isReady() { return !!ctx && ctx.state === "running" && !muted; }
+export function ctxState() { return ctx ? ctx.state : "off"; }
+export function lastCall() { return lastHeard; }
 
 // Stir / touch: a dragged finger stirs the medium. x chooses a minor
 // pentatonic rung; speed opens amplitude. Grains glide off the last
@@ -210,6 +219,7 @@ export function playTouch(xNorm = 0.5) {
   const now = performance.now();
   if (now - (lastPlayTs.get("touch") || 0) < 90) return;
   lastPlayTs.set("touch", now);
+  lastHeard = { species: "field", event: "touch", t: now };
 
   const base = stirIndex(xNorm);
   const t = ctx.currentTime;
@@ -235,18 +245,26 @@ function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
 export function play(speciesKey, event = "commit") {
   if (!ctx || muted || !speciesKey) return;
   const now = performance.now();
+  if (event === "call") {
+    if (now - (lastPlayTs.get("*call") || 0) < 2200) return;
+    lastPlayTs.set("*call", now);
+  }
   const last = lastPlayTs.get(speciesKey) || 0;
-  const gate = event === "birth" ? 90 : event === "growth" ? 500 : 250;
+  const gate = event === "birth" ? 90
+    : event === "growth" ? 500
+    : event === "call" ? 2800
+    : 250;
   if (now - last < gate) return;
   lastPlayTs.set(speciesKey, now);
   const sc = {
-    birth: 0.55, commit: 0.75, growth: 1.05, merger: 1.15, fission: 0.85, death: 0.6,
+    birth: 0.55, commit: 0.75, growth: 1.05, merger: 1.15, fission: 0.85, death: 0.6, call: 0.44,
   }[event] || 0.75;
 
   const voices = {
     lion, parakeet, wolf, elephant, whale, frog, owl, dolphin, cricket, sparrow,
   };
   const v = voices[speciesKey];
+  lastHeard = { species: speciesKey, event, t: now };
   if (v) v(sc);
 }
 

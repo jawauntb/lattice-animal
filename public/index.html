@@ -92,6 +92,7 @@
     <button class="row keys tappable" data-action="pause"><kbd>space</kbd><span>pause / resume</span></button>
     <button class="row keys tappable" data-action="reseed"><kbd>R</kbd><span>reseed a fresh field</span></button>
     <button class="row keys tappable" data-action="mute"><kbd>M</kbd><span>mute / unmute the field</span></button>
+    <button class="row keys tappable" data-action="panels"><kbd>H</kbd><span>hide the panels</span></button>
     <div class="row keys"><kbd>tap</kbd><span>drop three minds · hear the field</span></div>
     <div class="row keys"><kbd>drag</kbd><span>paint a trail · the glass sings</span></div>
   </aside>
@@ -115,7 +116,7 @@
       <span class="verse" id="verse">the field is being born</span>
       <span class="chevron" aria-hidden="true">▲</span>
     </button>
-    <button class="menu-btn" id="menu-btn" aria-controls="legend telemetry" aria-label="Show legend and telemetry">⌇</button>
+    <button class="menu-btn" id="menu-btn" aria-controls="legend telemetry" aria-expanded="true" aria-label="Hide legend and telemetry" title="Hide the panels (H)">⌇</button>
   </footer>
 
   <aside class="narrator-drawer" id="narrator-drawer" hidden aria-label="What's happening in the field">
@@ -134,7 +135,8 @@
         they wander, birth, split, and join, and this log keeps speaking.
         Tap a line to see the place on the field that made it true.
         Inside each mind, a fly heading circuit loops on the page.
-        A slower thought, 754 neurons on an L4, writes back when it is awake.
+        A slower thought, 754 neurons on an L4, waits until the field
+        is born, then writes back every few seconds. The page never waits.
       </p>
       <div class="drawer-log" id="drawer-log">
         <div class="drawer-log-empty">no events yet — the field is warming up.</div>
@@ -233,13 +235,14 @@
         <li><strong>χ</strong> — peak of the concern field (1 when quiet; higher near recent events)</li>
         <li><strong>width</strong> — how wide the compatible rotation family still is. Narrow means the gauge has committed; wide means it is still w‑maxing.</li>
         <li><strong>loop</strong> — mean times the fly circuit is reused this tick. Dolphins think deeper; whales think slower.</li>
-        <li><strong>think</strong> — <em>L4 N</em> when the slow mind is a Modal GPU stepping the deep circuit; <em>local</em> when only the on-page reflex is running.</li>
+        <li><strong>think</strong> — <em>opening</em> while the field is being born (no GPU yet); <em>L4 N</em> when a delayed letter from the Modal GPU arrives; <em>local</em> when only the on-page reflex is running.</li>
       </ul>
 
       <h3>How to touch it</h3>
       <ul>
         <li>Tap empty field to drop minds. Long‑press a committed cell to take it; the body tries to grow the remembered shape back.</li>
         <li>The chord / arpeggio button (A) changes only how commits look: together, or smeared across ticks.</li>
+        <li>H or the ⌇ button hides the legend and telemetry so the field can breathe. The choice stays.</li>
         <li>Open the narrator and tap a morphospace shape to bias new births toward that inhabitant.</li>
       </ul>
 
@@ -290,10 +293,8 @@
           e.preventDefault(); openModal();
         }
       });
-      // Mobile menu toggles the visibility of legend + telemetry
       menuBtn.addEventListener('click', () => {
-        const on = document.body.classList.toggle('chrome-open');
-        menuBtn.setAttribute('aria-expanded', String(on));
+        if (window.__la && window.__la.togglePanels) window.__la.togglePanels();
       });
 
       // Simulation action buttons — always available on any device
@@ -303,6 +304,7 @@
         if (name === 'reseed') window.__la.reseed();
         if (name === 'mute') window.__la.toggleMute();
         if (name === 'gap') window.__la.toggleTemporalGap();
+        if (name === 'panels') window.__la.togglePanels();
       }
       document.getElementById('btn-pause').addEventListener('click', () => fireAction('pause'));
       document.getElementById('btn-reseed').addEventListener('click', () => fireAction('reseed'));

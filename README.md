@@ -90,7 +90,9 @@ voiced with Web Audio — no audio files ship with the site.
 | Sparrow | lilac | 3‑note triangle warble |
 
 Rose and ember hues stay silent — the quiet species. Sounds trigger on
-commit (soft), growth milestones (full‑voice), merger, fission, and death.
+commit (after the mind has a color), growth, merger, fission, death,
+a walk, and a living-phase call every few seconds so a saved field
+still has a voice. Tap once so the browser will let the field speak.
 
 ## Controls
 
@@ -107,7 +109,7 @@ commit (soft), growth milestones (full‑voice), merger, fission, and death.
 - **A** or the three‑bar button — chord vs arpeggio (look only)
 - **Narrator → inhabitants** — bias births toward a morphospace shape
 - **?** — open the full explainer
-- **⌇** — on mobile, reveal the legend + telemetry
+- **H** or **⌇** — hide or show the legend and telemetry (persisted)
 
 ## Theory sources
 
@@ -155,8 +157,10 @@ node scripts/build-icons.mjs
 
 Each mind has two clocks. A 47-neuron heading circuit loops on the page.
 A slower thought — 754 neurons, 7200 synapses from `male-cns:v1.0` —
-runs on one Modal L4 and writes a readout into voltage. The GPU scales
-to zero when nobody is looking. Recompile the small motif with
+stays quiet through page load and the opening, then one HTTP letter
+every four seconds from a Modal L4 writes a readout into voltage. The
+GPU scales to zero when nobody is looking. A held websocket would keep
+it billed. Recompile the small motif with
 `python3 scripts/compile-fly-cx.py`; the deep one with
 `python3 scripts/compile-fly-deep.py`. Deploy the mind with
 `modal deploy modal_mind/app.py`.

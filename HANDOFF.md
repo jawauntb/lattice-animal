@@ -112,16 +112,22 @@ regress any of these.
   (lion, parakeet, wolf, elephant, whale, frog, owl, dolphin,
   cricket, sparrow); rose and ember hues stay silent
 - Events → sound: commit, growth milestone, merger, fission, death,
-  spawn
+  spawn, wander, plus a living-phase call every few seconds so a
+  saved still field still speaks
 - Master compressor bus; 250 ms same‑species retrigger throttle
-- Web Audio armed on first user gesture only
+  (calls 2.2 s global / 2.8 s per species)
+- Web Audio armed on first user gesture only; resume on tab focus
 
 **Fly circuit**
 - Local reflex: 47-neuron heading circuit on the page.
 - Slow mind: one Modal L4 (`lattice-animal-mind`) steps a 754-neuron
   / 7200-synapse motif and writes a readout into V. Scale to zero.
   Express `/think` proxies with `THINK_URL` + `THINK_TOKEN`.
-  Telemetry `think` reads `L4 754` when awake, `local` otherwise.
+  No GPU call for the first 8 s of a visit, and none until an animal
+  exists. After that, one HTTP letter every 4 s. Do not put this on a
+  websocket: a held socket keeps the L4 awake and kills scale-to-zero.
+  The page never waits on the letter. Telemetry reads `opening`, then
+  `L4 754` when a letter lands, `local` if only the reflex is running.
 
 **Narrator**
 - Bottom verse becomes a live narrator line in a readable glass pill
@@ -153,7 +159,8 @@ regress any of these.
 - **Hover** a mind on desktop — floating blurb of its species, its
   state, and a one‑sentence plain‑language explanation
 - **?** button (bottom‑left) — full explainer modal
-- **⌇** menu button (mobile) — collapse/reveal legend and telemetry
+- **H** / **⌇** menu button — hide or show legend and telemetry
+  (persisted as `la:panels`; phones start hidden)
 - **▲** chevron on the verse — open/close narrator drawer
 - All keyboard shortcuts also work via tap buttons
 

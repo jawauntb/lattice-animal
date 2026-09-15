@@ -524,8 +524,9 @@ function updateValence(m, N, minds) {
   const stale = clamp(m.settle / CFG.commitFrames, 0, 1);
   const r = m.lightCone || state.gauge.s * CFG.coneScale;
   let hits = 0;
-  for (const o of minds) {
-    if (o === m) continue;
+  for (const j of N) {
+    const o = minds[j];
+    if (!o) continue;
     if (Math.hypot(o.x - m.x, o.y - m.y) < r) hits++;
   }
   const overlap = clamp(hits / 8, 0, 1);
@@ -934,6 +935,8 @@ function updateLivingPhase() {
   // organic, not disruptive.
   state.gauge.theta += Math.sin(state.frame * 0.003) * 0.00025;
 
+  if (Math.random() < 0.018) tryAnimalCall();
+
   // Life events fire on a Poisson schedule, spaced by cooldown.
   if (state.frame - (state._lastLifeFrame || 0) < LIFE.lifeCooldown) return;
   // Weighted event pick
@@ -959,6 +962,14 @@ function updateLivingPhase() {
     did = tryDissolve() || did;
   }
   if (did) state._lastLifeFrame = state.frame;
+}
+
+function tryAnimalCall() {
+  const colored = state.minds.filter(m => m.committed && (m.animalColor || m.lastAnimalColor));
+  if (!colored.length) return;
+  const m = colored[(Math.random() * colored.length) | 0];
+  const sp = voiceOf(m);
+  if (sp) audio.play(sp, "call");
 }
 
 function occupiedCells() {
@@ -1001,6 +1012,8 @@ function tryWander() {
   const norm = Math.hypot(dx, dy) || 1;
   m.vx += (dx / norm) * 1.6;
   m.vy += (dy / norm) * 1.6;
+  const sp = voiceOf(m);
+  if (sp) audio.play(sp, "call");
   if (Math.random() < 0.16) {
     narrateLife({
       short: "a body took a single step",
@@ -1375,7 +1388,11 @@ function step() {
       const drive = 0.50 * m.V + 0.28 * (target - m.V) + 0.14 * (chi - 1) + 0.08 * (1 - 2 * sErr);
       m._drive = drive;
       m._species = speciesKey || "";
-      fly.stepMind(m, drive, speciesKey, state.frame);
+      const busy = !m.committed || (m.thought || 0) > 0.42 || m.cancer;
+      const cadence = state.perf.skipHeavy ? 3 : 2;
+      if (busy || ((i + state.frame) % cadence) === 0) {
+        fly.stepMind(m, drive, speciesKey, state.frame);
+      }
       if (m.thought > 0.55 && state.frame - (m._thoughtAt || 0) > 240) {
         m._thoughtAt = state.frame;
         const deep = fly.thinkStats && fly.thinkStats().ok;
@@ -1546,12 +1563,6 @@ function step() {
     if (m.commitFlash > 0) m.commitFlash--;
     if (m.collapse > 0) m.collapse--;
   }
-  // Voice each fresh commit softly — its animal's species (if it has one) speaks.
-  for (const m of freshCommits) {
-    const sp = audio.speciesForColor(m.animalColor || m.lastAnimalColor);
-    if (sp) audio.play(sp, "commit");
-  }
-
   // Chord interference: any freshly committed mind whose kin also committed within
   // this tick or the previous 3 gets a brighter, longer birth-flash. Truly
   // simultaneous commits are the "chord"; staggered ones remain the "arpeggio."
@@ -1668,6 +1679,11 @@ function step() {
   }
   state.animalCount = animalCount;
   state.largestAnimal = animalSize.reduce((a, b) => Math.max(a, b), 0);
+
+  for (const m of freshCommits) {
+    const sp = voiceOf(m);
+    if (sp) audio.play(sp, "commit");
+  }
 
   // Detect and emit narrations for phase transitions this tick.
   detectNarrations(freshCommits);
@@ -2424,10 +2440,14 @@ function drawMinds() {
     ctx.strokeStyle = m.committed ? `rgba(${CREAM}, ${cilA})` : `rgba(${cr}, ${cg}, ${cb}, ${cilA})`;
     ctx.lineWidth = 0.85;
     ctx.lineCap = "round";
-    ctx.shadowColor = `rgba(${m.committed ? CREAM : `${cr}, ${cg}, ${cb}`}, ${0.25 + 0.55 * stable})`;
-    ctx.shadowBlur = 2 + 12 * stable;
-    for (let k = 0; k < m.cilia; k++) {
-      const base = (k / m.cilia) * Math.PI * 2;
+    const glow = !state.perf.skipHeavy && (m.commitFlash > 0 || (m.thought || 0) > 0.48);
+    if (glow) {
+      ctx.shadowColor = `rgba(${m.committed ? CREAM : `${cr}, ${cg}, ${cb}`}, ${0.25 + 0.55 * stable})`;
+      ctx.shadowBlur = 2 + 10 * stable;
+    }
+    const nCilia = state.perf.skipHeavy ? Math.max(4, (m.cilia * 0.6) | 0) : m.cilia;
+    for (let k = 0; k < nCilia; k++) {
+      const base = (k / nCilia) * Math.PI * 2;
       const sway = m.committed ? 0 : 0.35 * Math.sin(t * 1.2 + m.phase + k);
       const a = base + sway;
       const r0 = 3.8 * breathScale;
@@ -2731,7 +2751,11 @@ function frame() {
     noteBlowup("this screen is working hard — some glows were dimmed");
   }
   if (state.frame % 6 === 0) tick();
-  if (!state.paused) fly.requestThink(state.minds, state.frame);
+  if (!state.paused && !document.hidden) {
+    fly.requestThink(state.minds, state.frame, {
+      open: !!(state.narration.flags.living || state.animalCount >= 1),
+    });
+  }
   if (state.frame - lastSaveFrame > SAVE_EVERY_FRAMES) {
     lastSaveFrame = state.frame;
     saveField();
@@ -2752,6 +2776,21 @@ function toggleMute() {
   const btn = document.getElementById("btn-mute");
   if (btn) btn.classList.toggle("active", next);
   try { localStorage.setItem("la:muted", next ? "1" : "0"); } catch {}
+}
+function togglePanels(force) {
+  const next = typeof force === "boolean"
+    ? force
+    : !document.body.classList.contains("panels-on");
+  document.body.classList.toggle("panels-on", next);
+  document.body.classList.toggle("panels-off", !next);
+  const btn = document.getElementById("menu-btn");
+  if (btn) {
+    btn.setAttribute("aria-expanded", String(next));
+    btn.setAttribute("aria-label", next ? "Hide legend and telemetry" : "Show legend and telemetry");
+    btn.title = next ? "Hide the panels (H)" : "Show the panels (H)";
+  }
+  try { localStorage.setItem("la:panels", next ? "1" : "0"); } catch {}
+  return next;
 }
 function toggleTemporalGap() {
   state.temporalGapMode = state.temporalGapMode === "chord" ? "arpeggio" : "chord";
@@ -2801,6 +2840,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "f") { state.showField = !state.showField; }
   else if (k === "g") { state.showGhost = !state.showGhost; }
   else if (k === "a") { toggleTemporalGap(); }
+  else if (k === "h") { togglePanels(); }
 });
 
 // Expose tap handlers for the on-screen buttons.
@@ -2808,7 +2848,11 @@ window.__la = Object.assign(window.__la || {}, {
   togglePause,
   reseed: doReseed,
   toggleMute,
+  togglePanels,
   toggleTemporalGap,
+  audioInfo() {
+    return { muted: audio.isMuted(), ready: audio.isReady(), state: audio.ctxState(), last: audio.lastCall() };
+  },
   vStats() {
     const vs = state.minds.map(m => m.V);
     if (!vs.length) return { n: 0, mean: 0, min: 0, max: 0 };
@@ -2900,6 +2944,20 @@ function armAudio() {
 window.addEventListener("pointerdown", armAudio, true);
 window.addEventListener("keydown", armAudio, true);
 window.addEventListener("touchstart", armAudio, true);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) audio.resume();
+});
+try {
+  const savedPanels = localStorage.getItem("la:panels");
+  const coarse = window.matchMedia && (
+    window.matchMedia("(max-width: 780px)").matches
+    || window.matchMedia("(pointer: coarse)").matches
+  );
+  const startOn = savedPanels === "1" ? true : savedPanels === "0" ? false : !coarse;
+  togglePanels(startOn);
+} catch {
+  togglePanels(true);
+}
 
 // Paint interaction: click drops three minds; drag paints a trail of them
 // (respectful of gauge spacing so they don't pile up).

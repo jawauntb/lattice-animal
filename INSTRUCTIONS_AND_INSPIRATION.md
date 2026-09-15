@@ -479,7 +479,9 @@ is a rendering of some fiber of this invariant. Keep it that way.
 
 Mapped to ten of the twelve `ANIMAL_HUES`. Rose and ember are the
 "quiet species." All voices are procedurally synthesized in
-`public/audio.js` — no audio files ship with the site.
+`public/audio.js` — no audio files ship with the site. A settled
+saved field still calls every few seconds once a gesture has armed
+the audio context.
 
 | Species | Hue | Voice |
 | --- | --- | --- |
@@ -557,7 +559,9 @@ pull from Doppler:
 
 The page ships a compiled heading circuit. The slow mind is one Modal
 L4 (`modal deploy modal_mind/app.py`) behind `/think`. The token lives
-in a Modal secret and on Railway, not in git.
+in a Modal secret and on Railway, not in git. The GPU stays silent
+through page load and the opening of the field, then writes a letter
+every few seconds. A websocket would pin the L4; HTTP lets it sleep.
 
 ## The commitment
 

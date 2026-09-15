@@ -4,4 +4,6 @@ npm-debug.log
 .env
 .env.*
 *.token
+__pycache__/
+*.pyc
 .playwright-cli/

@@ -98,7 +98,9 @@ duplicate work between agents — split by theme.
   `pointer-events: auto` via `.chrome > *`. Grandchildren interactive
   regions (like `.action-cluster`) also get an explicit rule. If you
   add a new nested interactive region under `.chrome`, add
-  `pointer-events: auto` explicitly.
+  `pointer-events: auto` explicitly. When panels are off,
+  `body.panels-off .legend *` must stay `pointer-events: none` or the
+  invisible legend steals taps from the field.
 - **Adding a huge decorative layer** that visually dominates the
   field. Warmth stays as accent from committed cells; nothing else
   should feel warm.
@@ -334,7 +336,8 @@ building decoration. Concretely:
       Local reflex: 47-neuron heading circuit. Slow mind: Modal L4
       steps 754 neurons / 7200 synapses from `male-cns:v1.0` at a
       few Hz and writes a readout into V. Scale to zero. Telemetry
-      `think` reads `L4 754` when the GPU is awake.
+      `think` reads `opening` for the first 8 s, then `L4 754` when a
+      4 s letter from the GPU lands. Do not websocket the L4.
 - [ ] **Space‑warp** — GR‑animation style visible curvature of the
       background mesh where χ(x, y) peaks, so the field itself looks
       bent by the presence of a body.

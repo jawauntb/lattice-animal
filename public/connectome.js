@@ -83,10 +83,10 @@ export function bind(mind) {
 }
 
 function tanh(x) {
-  if (x < -4) return -1;
-  if (x > 4) return 1;
-  const e = Math.exp(2 * x);
-  return (e - 1) / (e + 1);
+  if (x < -3) return -1;
+  if (x > 3) return 1;
+  const x2 = x * x;
+  return x * (27 + x2) / (27 + 9 * x2);
 }
 
 function clamp1(v) { return v < -1 ? -1 : v > 1 ? 1 : v; }
@@ -142,9 +142,15 @@ export function stepMind(mind, drive, speciesKey, frame) {
   return sum;
 }
 
+const THINK = {
+  openingMs: 8000,
+  cadenceMs: 4000,
+};
+
 const thinkClock = {
   inflight: false,
   lastAt: 0,
+  pageBorn: 0,
   last: { ok: false, gpu: false, n: 0, e: 0, ms: 0, reason: "idle" },
 };
 
@@ -171,7 +177,7 @@ export function applyThink(minds, payload) {
     const m = minds[i];
     const o = outs[i];
     const r = o.readout || 0;
-    m.V = clamp1(m.V + 0.045 * r);
+    m.V = clamp1(m.V + 0.10 * r);
     m.deepE = o.e || 0;
     m.deepThought = o.thought || 0;
     m.thought = Math.max(m.thought || 0, o.thought || 0);
@@ -188,11 +194,18 @@ export function applyThink(minds, payload) {
   };
 }
 
-export async function requestThink(minds, frame) {
+export async function requestThink(minds, frame, opts = {}) {
   if (!minds || !minds.length) return null;
   const now = performance.now();
+  if (!thinkClock.pageBorn) thinkClock.pageBorn = now;
+  if (now - thinkClock.pageBorn < THINK.openingMs || opts.open === false) {
+    if (!thinkClock.last.ok) {
+      thinkClock.last = { ok: false, gpu: false, n: 0, e: 0, ms: 0, reason: "opening" };
+    }
+    return null;
+  }
   if (thinkClock.inflight) return null;
-  if (now - thinkClock.lastAt < 180) return null;
+  if (now - thinkClock.lastAt < THINK.cadenceMs) return null;
   thinkClock.inflight = true;
   thinkClock.lastAt = now;
   try {
@@ -260,7 +273,7 @@ export function draw(ctx, minds, opts) {
     scored.push({ m, s: (m.thought || 0) + (m.circuitE || 0) + (think ? 1 : 0) });
   }
   scored.sort((a, b) => b.s - a.s);
-  const cap = skip ? 6 : 14;
+  const cap = skip ? 4 : 7;
   ctx.save();
   for (let i = 0; i < scored.length && i < cap; i++) {
     drawOne(ctx, scored[i].m, nodes, edges, cream, frame, skip);
@@ -282,17 +295,21 @@ function drawOne(ctx, m, nodes, edges, cream, frame, skip) {
 
   if (!skip) {
     ctx.lineWidth = 0.85;
+    ctx.beginPath();
+    let lastA = -1;
     for (let e = 0; e < edges.length; e++) {
       const ed = edges[e];
       const a = Math.abs(v[ed.s] * v[ed.t]);
-      if (a < 0.08) continue;
+      if (a < 0.14) continue;
       const ns = nodes[ed.s], nt = nodes[ed.t];
-      ctx.strokeStyle = `rgba(${cream}, ${Math.min(0.62, 0.12 + a * 0.85) * glow})`;
-      ctx.beginPath();
+      if (lastA < 0) {
+        ctx.strokeStyle = `rgba(${cream}, ${Math.min(0.55, 0.14 + a * 0.7) * glow})`;
+        lastA = a;
+      }
       ctx.moveTo(m.x + ns.x * R, m.y + ns.y * R);
       ctx.lineTo(m.x + nt.x * R, m.y + nt.y * R);
-      ctx.stroke();
     }
+    ctx.stroke();
   }
 
   for (let i = 0; i < nodes.length; i++) {

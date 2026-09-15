@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (iter 13 — Modal L4 slow mind + local reflex).
+Last updated: 2026‑09‑15 (iter 14 — voices, panels, deferred GPU letters).
 
 ---
 
@@ -72,13 +72,14 @@ lattice_animal/
 - **`public/index.html`** — Semantic layout:
   - `<canvas id="stage">` fills the viewport
   - `.chrome.top` — brand, epigraph, `.action-cluster` (mute / pause /
-    reseed) in a right column
-  - `.chrome.legend` — the cast + controls list (rows for space, R, M
-    are `<button class="tappable">`)
+    reseed / chord) in a right column
+  - `.chrome.legend` — the cast + controls list (rows for space, R, M, H
+    are `<button class="tappable">`). `body.panels-off` tucks legend and
+    telemetry so they cannot steal clicks
   - `.chrome.telemetry` — minds / committed / animals / largest /
-    entropy readouts
+    entropy / V / χ / width / loop / think
   - `.chrome.bottom` — grid: `?` info button, `.verse-btn` narrator
-    trigger, `⌇` menu button
+    trigger, `⌇` menu button (always visible; H and tap toggle panels)
   - `.modal-scrim` + `.modal` — full explainer
   - `.narrator-drawer` — expandable panel below the verse
   - `.mind-tooltip` — floating hover blurb (positioned near cursor)
@@ -205,11 +206,13 @@ Structure, top to bottom:
 
 ### Fly circuit — `public/connectome.js`
 
-Loads `public/data/fly-cx.json` (47-neuron heading reflex) and, a few
-times a second, `POST /think` to a Modal L4 running
-`modal_mind/fly-deep.json` (754 neurons, 7200 synapses). The GPU
-readout writes into `mind.V`. If the GPU is cold or unset, the page
-keeps the local reflex. `draw` still paints the small constellation.
+Loads `public/data/fly-cx.json` (47-neuron heading reflex). After the
+first 8 s of a visit, and only once an animal exists, `POST /think`
+every 4 s to a Modal L4 running `modal_mind/fly-deep.json` (754
+neurons, 7200 synapses). The GPU readout writes into `mind.V`. The
+page never awaits the letter. A websocket would pin the L4 and break
+scale-to-zero. If the GPU is cold or unset, the local reflex stays.
+`draw` still paints the small constellation.
 
 ### Voices — `public/audio.js`
 
@@ -328,7 +331,7 @@ Mind = {
 | Paint trail | drag | drag (glass grains; no page scroll) |
 | Hover blurb | pointermove | still-tap on a mind |
 | Info modal | ? button, ? key | ? button |
-| Legend + telemetry | always visible | ⌇ button |
+| Legend + telemetry | H, ⌇ button (persisted) | ⌇ button (starts hidden) |
 | Narrator drawer | verse row (▲) | verse row (▲) |
 | Escape | closes modal / drawer | — |
 
