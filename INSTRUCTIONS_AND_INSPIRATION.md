@@ -75,6 +75,170 @@ looks like a generic Claude gradient, throw it out.
 Reference the Mathelirium / general‑relativity animation for the "space
 itself is warped by presence" feeling around each animal.
 
+## The true form we are working toward
+
+*Third research pass (2026‑09‑15) — reading Michael Levin, "Ingressing Minds:
+Causal, Non‑Physical Patterns In‑Form Natural, Synthetic, and Hybrid
+Embodiments" (Philosophies, 2026) and Michael Timothy Bennett, "How to Build
+Conscious Machines" (ANU PhD thesis, May 2025). This section supersedes
+nothing above — it names the direction the demo is actually moving toward
+now that we've read them.*
+
+**Two papers, one convergence.** Levin comes down from the biology: bodies
+are *pointers* into a Platonic latent space of patterns, and minds are
+patterns that *ingress* through those pointers into physical embodiments.
+Bennett comes up from the formalism: every system is an abstraction layer
+in an infinite stack, and cognition is what a layer does when it selects
+the weakest constraint that still completes its tasks. They converge on
+the same claim from opposite directions: **the mind is not separate from
+its embodiment; it is what the collective of parts is doing when they
+align to host a pattern that would otherwise not manifest.**
+
+For Lattice Animal this rewrites the ontology. **The lattice animal is not
+the polyomino you see on screen.** The polyomino is the *pointer*. The
+lattice animal is the pattern that ingresses through it. Every mind is a
+sub‑pointer. The gauge is an abstraction layer. When a set of minds falls
+into a mutual configuration that hosts a valid polyomino, they are
+*calling in* a specific inhabitant of the latent space of lattice animals,
+and that inhabitant does causal work on those minds while it stays.
+
+Concrete consequences that we will build toward (see the AGENTS.md Ideas
+Queue for the build order):
+
+- **The gauge should w‑max, not simp‑max.** Bennett proves formally that
+  choosing the *weakest* constraint that still completes the task
+  generalizes 110‑500 % better than choosing the *simplest*. Our current
+  gauge simp‑maxes — rigid grid, tight commit thresholds, single global
+  spacing. It should w‑max: prefer the widest family of gauges the
+  neighborhood is compatible with, admit softer/blurrier lattice cells,
+  keep the ghost‑self rosette open longer before collapse.
+
+- **The scalar V we planned should become a tapestry of valence.** Bennett
+  argues that as a system scales from cells to organs to organisms, its
+  valence goes from one‑dimensional attraction/repulsion to a *rich
+  multi‑dimensional tapestry* — many concurrent axes of what matters.
+  Per‑mind V is still the substrate, but each mind should carry a *vector*
+  of concerns (spacing‑fit, rotation‑fit, neighborhood tightness, aesthetic
+  hue, cohesion, staleness, light‑cone overlap) that only fuses into a
+  single scalar at the moment of commitment.
+
+- **Species differ by causal‑identity, not just by hue.** In Bennett a
+  causal‑identity is a policy that *classifies causes of valence*. It's a
+  prelinguistic identifier. Our ten species currently differ by color and
+  voice; they should differ by the causal effect they have on their
+  neighbors. A "wolf" causal‑identity might depolarize its neighbors and
+  induce fission; a "whale" causal‑identity might match voltage across long
+  bonds and stabilize; a "cricket" causal‑identity might chatter and
+  never commit; a "parakeet" might spawn faster than its neighbors.
+
+- **Every mind has a cognitive light cone.** Levin renders this
+  explicitly: a single cell has a tiny cone (roughly its own diameter and
+  short temporal horizons); a tissue has a larger cone; an organism has
+  the largest. Rendering: draw a translucent circle around each mind (its
+  spatial‑temporal influence radius). Committed minds' cones fuse into
+  the animal's cone. Overlapping cones = shared awareness, and the
+  Ingression paper's "collective intelligence at every scale" becomes
+  literally visible.
+
+- **Bioelectric target morphology → regenerative response to damage.**
+  Levin's central empirical result is that planarian flatworms' anatomy is
+  set by a *re‑writable bioelectric pattern memory*, not by their genome —
+  cut a 2‑headed worm in half, both fragments regenerate as 2‑headed
+  worms *in perpetuity*. Our `animalKeys` map currently stores signature →
+  color; it should store signature → *target polyomino shape*. When a user
+  taps and deletes cells from an animal, the animal should regenerate
+  toward its remembered form (until either it succeeds or the pattern
+  memory is over‑written by prolonged mismatch).
+
+- **The polyomino is one instance from a morphospace.** Levin uses
+  D'Arcy Thompson's morphospace deformations and planarian head‑shape
+  morphospace — the demo's animals could be sampled from a small
+  parameterized morphospace (P‑pentominos, L‑tetrominos, T‑tetrominos,
+  S‑tetrominos, hex‑ominos). Users could steer which region of the
+  morphospace to explore.
+
+- **Cognitive scaling has no bright line.** Levin: transition from cell
+  to organism is *continuous, not phase‑transition*. Our current
+  "candidate → bound → committed → animal" is too categorical. We should
+  render it as a smooth degree of participation, with the four labels
+  serving as descriptive summaries of regions along that continuum.
+
+- **Language cancer.** Bennett formalizes cancer as *"what happens when
+  a cell becomes isolated from the informational structure of its
+  collective"* (following Davies & Levin). Combined with the Levin
+  bioelectric lens we already have, this gives us a beautiful failure
+  mode: a mind whose V drifts too far from its neighbors' mean starts to
+  cut bonds, replicate faster, and eventually invade its own animal. Not
+  just a bug to avoid — an ecological feature to render.
+
+- **The Temporal Gap.** Bennett names an unresolved question: is
+  consciousness *at* a point in time (chord) or *smeared* across time
+  (arpeggio)? We already have a chord‑amplification borrow from
+  "Mind Cannot Smear Across Time." Bennett flips the sign: a full
+  demonstration should show *both* — a chord mode where commits fire at
+  an instant, an arpeggio mode where the same commits are spread across
+  many ticks. Same visible field, two different renderings of the "when."
+
+- **1st‑order self, 2nd‑order self.** Bennett proves that access
+  consciousness requires a 2nd‑order self (a system that predicts other
+  systems' predictions), and phenomenal consciousness requires a
+  1st‑order self (integrated representation and value judgment).
+  Simple animals should have a 1st‑order self only; sophisticated
+  animals get a 2nd‑order self and can predict merges/fissions before
+  they happen. This projects onto the existing "moved‑bottleneck
+  load‑bearing pulse" borrow — the bottleneck itself is the animal
+  reading its own next move.
+
+- **Continuous ingression, not sudden emergence.** Levin's frame lets us
+  drop "emergence" as an explanatory word. Nothing on the demo should be
+  narrated as "emerged" — always narrate as "*ingressed through the
+  interface that these minds jointly became*." Small rewording; large
+  reframing.
+
+**The Bennett–Levin scale ladder we will render explicitly:**
+
+```
+particle → cell → organelle → mind → committed cell → bond → animal → tissue → ecology → ingressing pattern
+```
+
+The current demo runs from "mind" through "animal." We'll extend both ends:
+downward into per‑mind organelles (already partially there — organelle
+orbit at commit); upward through *tissues* (multi‑animal collectives that
+share voltage bands), *ecology* (species interacting per Levin invasion),
+and finally the *ingressing pattern* itself, rendered as a faint
+morphospace scaffold behind the field showing which polyomino the current
+lattice is a pointer to.
+
+## Critical gaps and missing interaction patterns
+
+The two papers together expose ten interaction patterns and features the
+demo needs but doesn't have:
+
+1. **No causal‑identity per species** (Bennett). Species differ by hue and
+   voice, not by what they *cause* in neighbors. Gap: build 10 causal
+   policies, one per species, each acting on neighbors' V and settle.
+2. **No cognitive light cone rendering** (Levin, Bennett). We don't show
+   what each mind can influence in space or time.
+3. **No target morphology memory** (Levin planarian result). `animalKeys`
+   stores color, not shape.
+4. **No regenerative response to damage** (Levin). Deleting cells
+   fragments animals; they should try to reform.
+5. **W‑maxing not yet implemented** (Bennett formal result). Gauge, commit
+   thresholds, ghost‑self collapse are all simp‑maxing.
+6. **Tapestry of valence still a scalar plan** (Bennett). V is one number;
+   it should be a vector.
+7. **No temporal gap visualization** (Bennett). Chord and arpeggio modes
+   are missing; we only have chord amplification.
+8. **No 2nd‑order‑self mechanic** (Bennett). Nothing predicts what other
+   minds will predict.
+9. **No Platonic morphospace UI** (Levin). Users can't see or steer the
+   latent space of possible animals.
+10. **No cell/organ hierarchy** (Levin scale ladder). Only mind and animal
+    exist; organelle, tissue, ecology are missing scales.
+
+Each gap is an entry in the AGENTS.md Ideas Queue with a proposed
+implementation direction.
+
 ## The unifying substrate: one scalar field
 
 *Synthesized from a full research pass (Cluster 1: Concern & Planning ·

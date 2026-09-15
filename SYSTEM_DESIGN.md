@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (Session 4, iter 7 — persistence + second research pass docs).
+Last updated: 2026‑09‑15 (Session 4, iter 8 — third research pass: Levin "Ingressing Minds" + Bennett "How to Build Conscious Machines").
 
 ---
 
@@ -340,22 +340,52 @@ domain` and returned https URL.
 
 ## The next-substrate build (Tier 0 in AGENTS.md ideas queue)
 
-Almost every idea in the ideas queue projects out of two new state
+Almost every idea in the ideas queue projects out of these new state
 fields we haven't shipped yet. When you build them, add:
 
-- `Mind.V` — a scalar in ~[-1, 1] initialized from a Gaussian centered
-  on the species' resting V. Each frame diffuses toward
-  `mean(V of committed Voronoi neighbors)` with a small rate ~0.02.
-  Include in `serializeField()`.
+- `Mind.V: number` — voltage/concern scalar in ~[-1, 1] initialized
+  from a Gaussian centered on the species' resting V. Each frame
+  diffuses toward `mean(V of committed Voronoi neighbors)` with a
+  small rate ~0.02. Include in `serializeField()`.
+- `Mind.valence: Float32Array(7)` — the tapestry of valence
+  (Bennett). Dimensions: [spacing‑fit, rotation‑fit, neighbor
+  tightness, tint, cohesion, staleness, light‑cone overlap]. Fed by
+  the existing local proposal computations. Collapses to a single
+  scalar on commit.
+- `Mind.lightCone: number` — the mind's spatial influence radius in
+  world units. For an uncommitted mind, ≈ neighbor‑mean‑distance × 1.5.
+  For a committed mind, ≈ animal's aggregate cone / member count.
+- `Mind.shapeMemory: Set<string>` — target morphology, populated on
+  first sustained stability as `${dx},${dy}` relative offsets from
+  the animal centroid. Read by regeneration when cells are deleted.
 - `state.chi: Float32Array(W × H / gridStep²)` — the concern field
   χ(x, y), recomputed from active event sources each frame at a
   coarse resolution (16 px per cell is fine). Cached in `state._chi`.
-  Sources are `state.chiSources: Array<{cx, cy, sigma, amp, decay}>`,
-  managed by the event triggers (spawn/fission/merge/dissolve/void).
+  Sources are `state.chiSources: Array<{cx, cy, sigma, amp, decay}>`.
+- `state.gaugeWidth: number` — Bennett w‑maxing bookkeeping. The
+  current *width* of the compatible‑theta distribution around
+  `state.gauge.theta`. When width is wide, the gauge is loosely
+  committed (w‑maxing); when narrow, tightly committed. Commit
+  thresholds sample from this width, not the mean alone.
+- `state.temporalGapMode: "chord" | "arpeggio"` — Bennett's temporal
+  gap toggle. Chord fires commits at an instant; arpeggio smears
+  each commit visually across N ticks. Simulation is unchanged; only
+  the render path branches on this.
 
-Add both to the state shape table above when built. New render layers
-that read them will slot between `drawAmbient()` and `drawDust()` for
-χ visualization, and inside `drawBonds()` and `drawMinds()` for V.
+Add each to the state shape table above when built. New render layers:
+
+- `drawLightCones()` — between `drawAmbient()` and `drawDust()`,
+  translucent circles per mind
+- `drawChiField()` — right after ambient, before dust; a low‑res
+  bilinear‑interpolated warp of the Voronoi cells' local spacing
+- `drawValenceThreads()` — inside `drawMinds()`, seven micro‑lines
+  radiating from each mind at different orientations, each with a
+  hue mapped from the valence dimension it represents
+- `drawTargetMorphology()` — when an animal is damaged, ghost
+  outlines at the missing relative offsets showing where the shape
+  memory says the missing cells should be
+- `drawPredictiveGhosts()` — 2nd‑order‑self prediction of neighbor
+  animals for mature animals only
 
 ## Update this file whenever
 

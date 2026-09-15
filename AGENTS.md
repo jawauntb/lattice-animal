@@ -164,6 +164,25 @@ Ranked by "unifies the most theory per line of code." Cross off when
 shipped. See `INSTRUCTIONS_AND_INSPIRATION.md` for the underlying
 mapping to specific papers.
 
+### Tier -1 — the true‑form frame (INSTRUCTIONS_AND_INSPIRATION.md → "The true form we are working toward")
+
+Before you build anything below, internalize what the demo actually *is*
+after the Bennett + Levin pass: **the polyomino you see is a pointer;
+the lattice animal is the pattern that ingresses through it**. Every
+Tier 0+ item should be interpretable in that frame or you're
+building decoration. Concretely:
+
+- The gauge is an abstraction layer that *w‑maxes* (chooses the widest
+  compatible constraint family), not simp‑maxes (chooses the simplest).
+- The per‑mind V scalar is the substrate; the per‑mind concern *vector*
+  is the tapestry of valence on top of it.
+- Species differ by *causal‑identity* (what they cause in neighbors),
+  not by hue or voice alone.
+- Damage triggers *regeneration toward remembered morphology*, not
+  fragmentation.
+- Cognitive scaling (mind → animal → tissue → ecology → ingressing
+  pattern) is a continuum, not a categorical ladder.
+
 ### Tier 0 — the substrate (build this first; everything else lands on it)
 
 - [ ] **Per‑mind V (voltage / concern scalar).** One number on each
@@ -184,6 +203,38 @@ mapping to specific papers.
       compress near activity and relax back to today's uniform gauge
       when things quiet.
 
+- [ ] **Tapestry of valence on top of V** (Bennett). Each mind carries a
+      *vector* of concerns — spacing‑fit, rotation‑fit, neighbor
+      tightness, aesthetic hue, cohesion, staleness, light‑cone overlap.
+      Stored as `Mind.valence: Float32Array(7)`. Each dimension drives
+      a distinct visual cue (cilia length, ring hue, halo softness,
+      etc.) *until* the moment of commit, where the vector visibly
+      collapses to a single scalar. Composes with V, doesn't replace it.
+
+- [ ] **W‑maxing gauge** (Bennett proves 110‑500 % generalization). At
+      each step the gauge should pick the *weakest* rotation/spacing
+      compatible with the mean local proposal, not the strongest.
+      Concretely: instead of `theta += (target − theta) * LR`, keep a
+      *distribution* over compatible thetas (mean + width) and only
+      snap when the width narrows below a threshold. Ghost‑self
+      rosette collapses on the same rule: don't force a single cell
+      when two or three are compatible.
+
+- [ ] **Cognitive light cones** (Levin, Bennett). Draw a translucent
+      circle around each mind whose radius = its influence horizon.
+      Single mind's cone ≈ neighbor mean distance × 1.5. Committed
+      minds' cones fuse into the animal's cone (union). Overlapping
+      cones indicate shared awareness — render the overlap slightly
+      brighter.
+
+- [ ] **Target morphology memory + regeneration** (Levin planarian
+      result). Extend `animalKeys` from `signature → color` to
+      `signature → { color, shapeMemory: Set<[dx,dy] relative offsets> }`
+      captured at first stability. When cells are deleted (user tap),
+      the surviving animal biases new spawns toward the missing
+      relative offsets. If the mismatch persists too long, the shape
+      memory over‑writes to the new form.
+
 ### Tier 1 — direct projections of V
 
 - [x] **Persistence to localStorage** — shipped (2026‑09‑15 session).
@@ -202,6 +253,63 @@ mapping to specific papers.
 - [ ] **Moved‑bottleneck load‑bearing pulse** — the mind whose small V
       perturbation would currently most reshape the lattice carries a
       faint traveling glow; migrates as control shifts.
+
+### Tier 1.5 — Bennett & Levin direct borrows
+
+- [ ] **Species = causal‑identity policy, not just hue+voice** (Bennett).
+      Each species declares *what it causes* in Voronoi neighbors, not
+      just how it looks/sounds. Ten policies:
+      - **Lion** — depolarizes neighbors, induces fission at bond
+      - **Parakeet** — spawns faster than mean, encroaching
+      - **Wolf** — long‑range V matching; forms tribes with matching V
+      - **Elephant** — anchors neighbors' V, resists movement
+      - **Whale** — long slow V synchrony across large radius
+      - **Frog** — pulses V rhythmically; entrains neighbors' commit timing
+      - **Owl** — quietly stabilizes cilia; nocturnal cohesion boost
+      - **Dolphin** — high‑frequency neighbor scanning; fastest response
+      - **Cricket** — chatters V; noise floor rises near it
+      - **Sparrow** — brief bursts of coordination; migratory patterns
+      Store as `SPECIES[k].policy = (mind, neighbors) => void` in
+      `audio.js` (rename to `species.js` since it now carries logic
+      not just voices).
+
+- [ ] **Regenerative response to damage** (Levin planarian bioelectric
+      pattern memory). When user taps and removes cells, the surviving
+      cells check their shape memory (see Tier 0) and preferentially
+      spawn into the missing relative offsets, until the pattern is
+      restored or the memory over‑writes to a new stable configuration.
+      Never let a damaged animal simply dissolve — it *tries* to
+      reform first.
+
+- [ ] **Language cancer** (Bennett + Davies & Levin). A mind whose V
+      drifts too far from its neighbors' mean for too long becomes
+      "isolated from the informational structure of its collective."
+      It then depolarizes further (positive feedback), cuts existing
+      bonds, spawns faster than normal, and eventually invades
+      neighboring animals by matching *their* V. A rare, dramatic
+      event; visually renders as a mind that goes dark, then bright,
+      then contagious.
+
+- [ ] **Chord vs. arpeggio toggle (the Temporal Gap, Bennett).** A
+      button that switches how the demo renders the exact same
+      underlying state: chord mode fires commits at an instant (as we
+      already do); arpeggio mode smears each commit across N ticks,
+      making it visible that the "moment" is a construction. Do not
+      change the simulation — only its rendering.
+
+- [ ] **Ingression from morphospace** (Levin). Show a small persistent
+      panel at the bottom of the drawer listing the polyomino
+      morphospace (P‑pentomino, L‑tetromino, T‑tetromino, S‑tetromino,
+      hexominos…) with which shapes the current animals are pointers
+      to. Tapping one biases the spawn dynamics toward that
+      inhabitant of the latent space.
+
+- [ ] **1st‑order‑self / 2nd‑order‑self** (Bennett). Mature animals
+      (size ≥ 8, age ≥ 30 s) develop a 2nd‑order‑self: they predict
+      what their neighbor animals will do next tick, and pre‑adjust.
+      Rendered as a faint predictive ghost of the neighbor animal
+      just outside the current animal's boundary. Simple 1st‑order
+      animals only ghost their own next step.
 
 ### Tier 2 — new mechanics enabled by V
 
