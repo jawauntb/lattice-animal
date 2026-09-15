@@ -331,11 +331,10 @@ building decoration. Concretely:
 ### Tier 4 — cosmic scale
 
 - [x] **Stacked / looped fly connectomes** — shipped 2026‑09‑15.
-      Compiled heading circuit from `male-cns:v1.0` via neuPrint
-      (47 neurons, 280 synapses, real body IDs). Each mind loops it
-      K times; the bump writes into V. Species choose sensors,
-      readouts, and K. Screenshot of the constellation on animal
-      cells, same day.
+      Local reflex: 47-neuron heading circuit. Slow mind: Modal L4
+      steps 754 neurons / 7200 synapses from `male-cns:v1.0` at a
+      few Hz and writes a readout into V. Scale to zero. Telemetry
+      `think` reads `L4 754` when the GPU is awake.
 - [ ] **Space‑warp** — GR‑animation style visible curvature of the
       background mesh where χ(x, y) peaks, so the field itself looks
       bent by the presence of a body.

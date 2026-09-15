@@ -1373,12 +1373,17 @@ function step() {
       const chi = sampleChi(m.x, m.y);
       const sErr = clamp(Math.abs(m.localS - state.gauge.s) / Math.max(1e-6, state.gauge.s), 0, 1);
       const drive = 0.50 * m.V + 0.28 * (target - m.V) + 0.14 * (chi - 1) + 0.08 * (1 - 2 * sErr);
+      m._drive = drive;
+      m._species = speciesKey || "";
       fly.stepMind(m, drive, speciesKey, state.frame);
       if (m.thought > 0.55 && state.frame - (m._thoughtAt || 0) > 240) {
         m._thoughtAt = state.frame;
+        const deep = fly.thinkStats && fly.thinkStats().ok;
         narrateLife({
-          short: "a circuit completed a thought",
-          long: "Forty-seven fly neurons, looped through the same heading circuit, agreed. That agreement leaked into the cell's voltage.",
+          short: deep ? "a deeper circuit closed on the GPU" : "a circuit completed a thought",
+          long: deep
+            ? "Seven hundred fly neurons on an L4 finished a loop. The bump came back as voltage."
+            : "Forty-seven fly neurons, looped through the same heading circuit, agreed. That agreement leaked into the cell's voltage.",
           kind: "life",
           x: m.x, y: m.y,
         });
@@ -2681,11 +2686,11 @@ function tick() {
   }
   const wEl = el("t-width");
   if (wEl) wEl.textContent = state.gauge.width.toFixed(2);
+  const cs = fly.stats(state.minds);
   const loopEl = el("t-loop");
-  if (loopEl) {
-    const cs = fly.stats(state.minds);
-    loopEl.textContent = cs.ready ? `${cs.k.toFixed(1)}×` : "–";
-  }
+  if (loopEl) loopEl.textContent = cs.ready ? `${cs.k.toFixed(1)}×` : "–";
+  const thinkEl = el("t-think");
+  if (thinkEl) thinkEl.textContent = cs.gpu ? `L4 ${cs.deepN}` : (cs.think || "local");
   if (state.frame % 20 === 0) updateMorphospace();
 }
 function setVerseText(text, instant) {
@@ -2726,6 +2731,7 @@ function frame() {
     noteBlowup("this screen is working hard — some glows were dimmed");
   }
   if (state.frame % 6 === 0) tick();
+  if (!state.paused) fly.requestThink(state.minds, state.frame);
   if (state.frame - lastSaveFrame > SAVE_EVERY_FRAMES) {
     lastSaveFrame = state.frame;
     saveField();
@@ -3049,8 +3055,9 @@ function describeMind(m) {
     : `<div class="tooltip-species">quiet species · V ${vStr}</div>`;
   const k = m.circuitK || 0;
   const thought = (m.thought || 0);
+  const deep = m.deepThought ? ` · deep ${m.deepThought.toFixed(2)}` : "";
   const circuitLine = m.circuit
-    ? `<div class="tooltip-species">fly circuit · ${k} loops · thought ${thought.toFixed(2)}</div>`
+    ? `<div class="tooltip-species">fly circuit · ${k} loops · thought ${thought.toFixed(2)}${deep}</div>`
     : "";
   return `${speciesLine}${circuitLine}<div class="tooltip-body">${state1} — ${state2}</div>`;
 }

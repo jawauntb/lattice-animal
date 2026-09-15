@@ -555,9 +555,9 @@ pull from Doppler:
 - Personal keys: `jawaun-personal` shared config
 - Research keys (Modal, HF Inference, etc.): `research_derived_experiments`
 
-Nothing here currently needs a key. The fly heading circuit ships as
-compiled JSON from the public neuPrint `male-cns:v1.0` API. Modal / HF
-inference is still optional if a later agent wants the full 166k graph.
+The page ships a compiled heading circuit. The slow mind is one Modal
+L4 (`modal deploy modal_mind/app.py`) behind `/think`. The token lives
+in a Modal secret and on Railway, not in git.
 
 ## The commitment
 

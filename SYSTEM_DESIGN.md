@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (iter 12 — stacked / looped male‑CNS heading circuit per mind).
+Last updated: 2026‑09‑15 (iter 13 — Modal L4 slow mind + local reflex).
 
 ---
 
@@ -27,6 +27,7 @@ lattice_animal/
 ├── package.json                       ← "start": "node server.js"
 ├── package-lock.json
 ├── server.js                          ← Express static server
+├── modal_mind/                        ← Modal L4 slow mind + fly-deep.json
 ├── railway.json                       ← Railway build/deploy config
 ├── nixpacks.toml                      ← Nixpacks node20 install/start
 ├── .gitignore
@@ -39,7 +40,7 @@ lattice_animal/
     ├── index.html                     ← page skeleton, meta tags, modal, drawer, script glue
     ├── style.css                      ← all styling
     ├── main.js                        ← sim + rendering + interactions (the heart)
-    ├── connectome.js                  ← looped male‑CNS heading circuit
+    ├── connectome.js                  ← local reflex + /think client
     ├── data/fly-cx.json               ← compiled 47‑neuron / 280‑synapse motif
     ├── audio.js                       ← ten procedural species voices + mute
     ├── vendor/                        ← self-hosted d3-delaunay + delaunator + robust-predicates
@@ -56,7 +57,8 @@ lattice_animal/
 
 - **`server.js`** — Tiny Express app. Serves `public/` statically with
   no‑store in dev / 1‑hour maxAge in prod. Exposes `/healthz` for
-  Railway. Binds `PORT` env, defaults 3000.
+  Railway and `/think` + `/think/status` proxies to the Modal L4.
+  Binds `PORT` env, defaults 3000.
 - **`package.json`** — `type: module`, `start: node server.js`, `engines
   node>=20`. Runtime deps: `express`, `compression`. Dev dep: `sharp`
   (only for `build-icons.mjs`).
@@ -203,12 +205,11 @@ Structure, top to bottom:
 
 ### Fly circuit — `public/connectome.js`
 
-Loads `public/data/fly-cx.json` (Janelia `male-cns:v1.0` heading
-circuit: EPG / PEN / PEG / Delta7 / EL, 47 neurons, 280 synapses).
-Each mind gets its own voltage vector. `stepMind` injects field drive
-into species-specific sensors, loops the graph K times (dolphin 5,
-whale 2), demeans so a bump can live, and writes the readout into
-`mind.V`. `draw` paints a cream constellation on animal cells.
+Loads `public/data/fly-cx.json` (47-neuron heading reflex) and, a few
+times a second, `POST /think` to a Modal L4 running
+`modal_mind/fly-deep.json` (754 neurons, 7200 synapses). The GPU
+readout writes into `mind.V`. If the GPU is cold or unset, the page
+keeps the local reflex. `draw` still paints the small constellation.
 
 ### Voices — `public/audio.js`
 

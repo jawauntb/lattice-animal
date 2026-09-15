@@ -142,6 +142,77 @@ export function stepMind(mind, drive, speciesKey, frame) {
   return sum;
 }
 
+const thinkClock = {
+  inflight: false,
+  lastAt: 0,
+  last: { ok: false, gpu: false, n: 0, e: 0, ms: 0, reason: "idle" },
+};
+
+export function thinkStats() { return thinkClock.last; }
+
+export function gatherThink(minds, frame) {
+  const batch = [];
+  for (let i = 0; i < minds.length; i++) {
+    const m = minds[i];
+    batch.push({
+      drive: m._drive || 0,
+      species: m._species || "",
+      seed: m.orgSeed || 0.37,
+    });
+  }
+  return { field: "live", frame, minds: batch };
+}
+
+export function applyThink(minds, payload) {
+  if (!payload || !payload.ok || !payload.minds) return;
+  const outs = payload.minds;
+  const n = Math.min(minds.length, outs.length);
+  for (let i = 0; i < n; i++) {
+    const m = minds[i];
+    const o = outs[i];
+    const r = o.readout || 0;
+    m.V = clamp1(m.V + 0.045 * r);
+    m.deepE = o.e || 0;
+    m.deepThought = o.thought || 0;
+    m.thought = Math.max(m.thought || 0, o.thought || 0);
+    if (o.k) m.circuitK = o.k;
+  }
+  thinkClock.last = {
+    ok: true,
+    gpu: !!payload.gpu,
+    n: payload.n || 0,
+    e: payload.e || 0,
+    ms: payload.ms || 0,
+    device: payload.device || "L4",
+    dataset: payload.dataset || "",
+  };
+}
+
+export async function requestThink(minds, frame) {
+  if (!minds || !minds.length) return null;
+  const now = performance.now();
+  if (thinkClock.inflight) return null;
+  if (now - thinkClock.lastAt < 180) return null;
+  thinkClock.inflight = true;
+  thinkClock.lastAt = now;
+  try {
+    const res = await fetch("/think", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(gatherThink(minds, frame)),
+    });
+    const data = await res.json();
+    if (data && data.ok) applyThink(minds, data);
+    else thinkClock.last = { ok: false, gpu: false, n: 0, e: 0, ms: 0, reason: (data && data.reason) || "down" };
+    return data;
+  } catch {
+    thinkClock.last = { ok: false, gpu: false, n: 0, e: 0, ms: 0, reason: "down" };
+    return null;
+  } finally {
+    thinkClock.inflight = false;
+  }
+}
+
 export function stats(minds) {
   if (!graph) return { ready: false, n: 0, e: 0, meanE: 0, thoughts: 0, k: 0 };
   let e = 0, t = 0, k = 0, m = 0;
@@ -152,6 +223,7 @@ export function stats(minds) {
     k += mind.circuitK || 0;
     if ((mind.thought || 0) > 0.48) t++;
   }
+  const remote = thinkClock.last;
   return {
     ready: true,
     n: graph.nodes.length,
@@ -161,6 +233,11 @@ export function stats(minds) {
     thoughts: t,
     k: m ? k / m : 0,
     dataset: graph.dataset,
+    gpu: !!remote.gpu,
+    deepN: remote.n || 0,
+    deepE: remote.e || 0,
+    deepMs: remote.ms || 0,
+    think: remote.ok ? (remote.device || "L4") : (remote.reason || "local"),
   };
 }
 

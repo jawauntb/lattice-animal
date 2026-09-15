@@ -117,11 +117,11 @@ regress any of these.
 - Web Audio armed on first user gesture only
 
 **Fly circuit**
-- Each mind runs a compiled heading circuit from Janelia
-  `male-cns:v1.0` (47 neurons, 280 synapses, real body IDs).
-  Looped K times per tick; the bump writes into V. Species pick
-  which cells they listen through. Visible as a cream constellation
-  on animal cells. Screenshot 2026‑09‑15.
+- Local reflex: 47-neuron heading circuit on the page.
+- Slow mind: one Modal L4 (`lattice-animal-mind`) steps a 754-neuron
+  / 7200-synapse motif and writes a readout into V. Scale to zero.
+  Express `/think` proxies with `THINK_URL` + `THINK_TOKEN`.
+  Telemetry `think` reads `L4 754` when awake, `local` otherwise.
 
 **Narrator**
 - Bottom verse becomes a live narrator line in a readable glass pill
@@ -342,9 +342,10 @@ commit.
 
 ## Doppler / credentials
 
-Nothing currently in the repo needs a key. The fly circuit is a
-compiled public neuPrint dump. If a later agent wants Modal / HF
-inference over the full 166k graph, pull creds from Doppler:
+The page itself needs no key. The slow mind uses a Modal secret
+`lattice-think` (`THINK_TOKEN`) and Railway vars `THINK_URL`,
+`THINK_STATUS_URL`, `THINK_TOKEN`. Do not commit the token.
+If a later agent wants a larger graph, pull extra creds from Doppler:
 
 - Personal: `jawaun-personal` shared config
 - Research: `research_derived_experiments`

@@ -153,11 +153,13 @@ node scripts/build-icons.mjs
 
 ## Iteration roadmap
 
-Each mind now runs a compiled heading circuit from the Janelia male CNS
-(`male-cns:v1.0` via neuPrint): 47 real neurons, 280 synapses, looped
-*K* times per tick. The bump writes into that cell's voltage. Species
-differ by which cells they listen through and how many times they loop.
-Recompile with `python3 scripts/compile-fly-cx.py`.
+Each mind has two clocks. A 47-neuron heading circuit loops on the page.
+A slower thought — 754 neurons, 7200 synapses from `male-cns:v1.0` —
+runs on one Modal L4 and writes a readout into voltage. The GPU scales
+to zero when nobody is looking. Recompile the small motif with
+`python3 scripts/compile-fly-cx.py`; the deep one with
+`python3 scripts/compile-fly-deep.py`. Deploy the mind with
+`modal deploy modal_mind/app.py`.
 
 ## Deploy
 
