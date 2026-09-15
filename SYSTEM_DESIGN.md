@@ -1,0 +1,349 @@
+# SYSTEM_DESIGN.md
+
+*Current architecture snapshot. Update this every time a file is added,
+removed, or its role shifts.*
+
+Last updated: 2026‑09‑15 (Session 4, iter 6 — hover blurbs + README).
+
+---
+
+## The one‑paragraph summary
+
+A Node/Express server serves a single static page (`public/index.html`)
+plus its vanilla ES‑module JavaScript, CSS, and generated icons. All the
+simulation, rendering, audio, and UI logic runs in the browser. There's
+no database and no persistent state: every visit starts a fresh field.
+Deployment is Railway via Nixpacks; icons are generated ahead of time
+from an SVG source with `scripts/build-icons.mjs`.
+
+## Repo layout
+
+```
+lattice_animal/
+├── AGENTS.md                          ← agent workflow guide
+├── INSTRUCTIONS_AND_INSPIRATION.md    ← purpose, aesthetic, research
+├── README.md                          ← public README on GitHub
+├── SYSTEM_DESIGN.md                   ← this file
+├── package.json                       ← "start": "node server.js"
+├── package-lock.json
+├── server.js                          ← Express static server
+├── railway.json                       ← Railway build/deploy config
+├── nixpacks.toml                      ← Nixpacks node20 install/start
+├── .gitignore
+├── icons/
+│   ├── icon.svg                       ← 512×512 app icon source (real polyomino)
+│   └── og.svg                         ← 1200×630 social‑preview source
+├── scripts/
+│   └── build-icons.mjs                ← sharp → PNGs + ICO + copies SVG
+└── public/
+    ├── index.html                     ← page skeleton, meta tags, modal, drawer, script glue
+    ├── style.css                      ← all styling
+    ├── main.js                        ← sim + rendering + interactions (the heart)
+    ├── audio.js                       ← ten procedural species voices + mute
+    ├── site.webmanifest               ← PWA manifest
+    ├── favicon.svg, favicon.ico, favicon-*.png
+    ├── icon-192.png, icon-512.png, icon-mask.png
+    ├── apple-touch-icon.png
+    └── og-image.png                   ← 1200×630 preview for SMS/Slack/Twitter
+```
+
+## Per‑file responsibilities
+
+### Deploy / infra
+
+- **`server.js`** — Tiny Express app. Serves `public/` statically with
+  no‑store in dev / 1‑hour maxAge in prod. Exposes `/healthz` for
+  Railway. Binds `PORT` env, defaults 3000.
+- **`package.json`** — `type: module`, `start: node server.js`, `engines
+  node>=20`. Runtime deps: `express`, `compression`. Dev dep: `sharp`
+  (only for `build-icons.mjs`).
+- **`railway.json`** — Nixpacks builder, `startCommand: node server.js`,
+  `healthcheckPath: /healthz`.
+- **`nixpacks.toml`** — Sets Node 20, runs `npm ci` (fallback `npm
+  install`) with `--omit=dev`, starts with `NODE_ENV=production`.
+
+### The page shell
+
+- **`public/index.html`** — Semantic layout:
+  - `<canvas id="stage">` fills the viewport
+  - `.chrome.top` — brand, epigraph, `.action-cluster` (mute / pause /
+    reseed) in a right column
+  - `.chrome.legend` — the cast + controls list (rows for space, R, M
+    are `<button class="tappable">`)
+  - `.chrome.telemetry` — minds / committed / animals / largest /
+    entropy readouts
+  - `.chrome.bottom` — grid: `?` info button, `.verse-btn` narrator
+    trigger, `⌇` menu button
+  - `.modal-scrim` + `.modal` — full explainer
+  - `.narrator-drawer` — expandable panel below the verse
+  - `.mind-tooltip` — floating hover blurb (positioned near cursor)
+  - `<script type="importmap">` maps `d3-delaunay` to a jsDelivr ESM
+    build; `main.js` is `type="module"`
+  - Bottom inline `<script>` wires all button click / drawer /
+    modal / M‑key logic. Talks to `main.js` through `window.__la`.
+
+### Styling
+
+- **`public/style.css`** — All CSS. Ordered as:
+  1. `:root` custom properties (palette, safe‑area insets)
+  2. Global reset + `[hidden] { display: none !important }` (critical
+     — see AGENTS.md failure modes)
+  3. `body` background gradient + typography
+  4. `#stage` canvas
+  5. `.chrome` base (fixed, z‑index 2, pointer‑events: none, children
+     auto)
+  6. `.top` header + `.top-cluster` + `.action-cluster` + `.action-btn`
+  7. `.legend` glass panel + `.row.keys.tappable`
+  8. `.telemetry` glass panel
+  9. `.bottom` grid + `.verse-btn` + `.chevron` + `.info-btn` + `.menu-btn`
+ 10. `.mind-tooltip`
+ 11. `.narrator-drawer` + inner content
+ 12. `.modal-scrim` + `.modal`
+ 13. Mobile media queries `@media (max-width: 780px)`, reduced‑motion,
+     ultra‑short viewports
+
+### The heart — `public/main.js`
+
+Structure, top to bottom:
+
+1. **Imports** — `d3-delaunay`, `* as audio from "/audio.js"`
+2. **Palette & verses**
+   - `TINT` — 4 tissue tints for uncommitted per‑mind identity
+   - `ANIMAL_HUES` — 12 hues for per‑animal identity
+   - `CREAM`, `NIGHT`
+   - `OPENING_VERSE`, `CLOSING_VERSE`, `VERSES[]`
+3. **`CFG`** — all tunables in one object: gauge params, motion params,
+   commit thresholds, render params, cosmos counts.
+4. **Canvas setup** — DPR‑aware `resize()`; window resize listener; and a
+   post‑boot poll (400 ms) that catches Chrome UI shifts that don't
+   fire a resize event.
+5. **`state`** — the whole world state:
+   - `minds[]` (each is a `Mind` instance)
+   - `dust[]`, `twinkles[]` (cosmos)
+   - `gauge {cx, cy, theta, s}` (the shared grid)
+   - `jitter`, `paused`, toggles for voronoi/field/ghost
+   - `frame`, `mouse`, `animalCount`, `largestAnimal`, `prev*` counters
+   - `narration {current, history[], flags{}, lastNarratedFrame}`
+   - `animalColors: Map(animalId → rgb)`,
+     `animalKeys: Map(signature → rgb)` for stable color continuity
+6. **`class Mind`** — position, velocity, gauge cell (gx, gy), settle
+   counter, committed flag, animalId, animalColor, lastAnimalColor,
+   local proposals (localS, localT, nMeanX/Y), tintIdx, cilia count,
+   commitFlash, commitChord, bornAt, spawnedAt, dying counter.
+7. **`seed(count)`** — sunflower scatter around the center; resets all
+   state including narration history + animalKeys.
+8. **`makeDust()` / `makeTwinkles()`** — cosmos particles.
+9. **Gauge math** — `worldToGauge` / `gaugeToWorld` / `nearestCell`.
+10. **`narrate()` / `renderDrawerLog()`** — pushes an event onto the
+    log, updates the verse, re‑renders the drawer.
+11. **`detectNarrations(freshCommits)`** — called each tick after
+    animal detection. One‑shot phase events (genesis, alignment, first
+    commit, first animal, N% committed, chord commits, large‑animal
+    milestones, mergers).
+12. **Living dynamics** — `updateLivingPhase()`, `tryWander()`,
+    `trySpawn()`, `tryDissolve()`, `tryFission()`. Enters at ≥85%
+    committed or frame > 22 s.
+13. **`step()`** — the whole sim tick:
+    a. Compute Delaunay + Voronoi.
+    b. Each mind reads its Voronoi neighbors, updates `localS`,
+       `localT`, `nMeanX/Y`.
+    c. Global gauge follows mean of proposals; spacing clamped tight
+       to prevent collapse.
+    d. Per‑mind forces: hysteretic cell assignment → snap toward
+       target → neighbor coherence → hard‑repel co‑located → PD
+       velocity damping → drag → maxSpeed cap → position update →
+       soft wall.
+    e. Commit / release / commit‑flash decrement.
+    f. Chord detection amplifies flash.
+    g. BFS finds connected components of 4‑adjacent committed minds
+       → animals; stable color assignment.
+    h. Detect narrations. Drift dust. Anneal jitter. Frame++.
+    i. Verse cycling if narrator has been quiet.
+14. **`render()`** — layers, back to front:
+    a. Fade previous frame (`trailFade`)
+    b. Ambient radial gradient (with breath)
+    c. Dust
+    d. Twinkles
+    e. Ghost lattice (if enabled)
+    f. Membranes (colored Voronoi fills)
+    g. Voronoi edges
+    h. Animal outlines + halos (per‑animal color)
+    i. Bonds (per‑animal color)
+    j. Vector field (dashed cool neighbor mean + tinted actual velocity)
+    k. Minds (halos, cores, cilia, commit rings, organelles, ghost‑self)
+15. **Telemetry / verse** — `tick()` updates DOM readouts every 6
+    frames; `setVerseText()` cross‑fades the bottom bar.
+16. **Main loop** — `requestAnimationFrame(frame)`. `step()` only when
+    not paused; render always.
+17. **Input** — keydown (space/R/V/F/G, M for mute), pointerdown/move/
+    up/cancel/leave, click handlers for the info modal and action
+    buttons.
+18. **Hover tooltip** — `findMindNear`, `describeMind` (returns HTML
+    with species + state + one‑sentence plain‑language commentary),
+    `updateMindTooltip`, `hideMindTooltip`.
+19. **Boot** — `resize(); seed(); requestAnimationFrame(frame);`
+    Exposes `window.__la = { togglePause, reseed, toggleMute }` for
+    the inline HTML script to call.
+20. **Audio arm** — first pointer/key gesture initializes `audio.init()`
+    and `audio.resume()`, then removes the listeners.
+
+### Voices — `public/audio.js`
+
+Small module. Public API:
+
+- `SPECIES` — 10 species with `key` and `rgb` (matched to `ANIMAL_HUES`)
+- `speciesForColor(rgb)` — returns the species key, or `null` for the
+  two quiet hues (rose + ember)
+- `init()`, `resume()`, `setMuted(bool)`, `isMuted()`, `play(speciesKey,
+  event)` — event ∈ {birth, commit, growth, merger, fission, death}
+- Internal helpers: `osc`, `gain`, `lpf`, `bpf`
+- Ten voice functions: `lion`, `parakeet`, `wolf`, `elephant`, `whale`,
+  `frog`, `owl`, `dolphin`, `cricket`, `sparrow` — each builds an
+  OscillatorNode graph, sets envelopes and schedules on
+  `ctx.currentTime`, connects through `master → compressor →
+  destination`.
+- Per‑species throttle (`lastPlayTs`) prevents retrigger spam.
+
+### Icons — `icons/` + `scripts/build-icons.mjs`
+
+- **`icons/icon.svg`** — 512×512 SVG rendering a real P‑pentomino lattice
+  animal: cosmic ground, dust specks, warm halo, cell perimeter,
+  Voronoi interior boundaries, warm gold bonds, cream inner strokes,
+  five species‑hued cells with cream cores.
+- **`icons/og.svg`** — 1200×630 with the same body (extended to 6 cells)
+  on the left, title + subtitle + tagline on the right, using
+  system‑fallback serifs so `sharp` can render text.
+- **`scripts/build-icons.mjs`** — Reads both SVGs. Uses `sharp` with
+  `density: 384` to rasterize at 16, 32, 48, 180 (Apple), 192, 512,
+  and 1200×630. Also assembles a multi‑size `favicon.ico` with a
+  hand‑rolled ICO packer that wraps three PNGs (16/32/48). Copies
+  `favicon.svg` verbatim.
+
+## Data flow
+
+```
+raw time (requestAnimationFrame)
+        ↓
+   step()  ← only when !paused
+        ↓
+Delaunay(positions)
+        ↓
+per‑mind proposal loop  ──►  gauge.theta / gauge.s / gauge.cx / gauge.cy
+        ↓
+force loop  (snap · neighbor coherence · repel · noise · PD damping)
+        ↓
+position update
+        ↓
+commit / release / chord amplify / animal BFS / color continuity
+        ↓
+detectNarrations()  ──►  narrate()  ──►  DOM verse + drawer log
+        ↓                                           audio.play(species, event)
+updateLivingPhase()  ──►  tryWander / trySpawn / tryFission / tryDissolve
+                                                    audio.play(...)
+
+   render()
+        ↓
+back‑to‑front layer stack (see main.js §14)
+```
+
+The tooltip and telemetry read from `state` but don't mutate it.
+
+## State shape (essentials)
+
+```
+state = {
+  minds: [Mind, ...],                 // grows/shrinks via spawn/dissolve/paint
+  dust: [...], twinkles: [...],       // cosmos
+  gauge: { cx, cy, theta, s },        // shared grid
+  jitter, paused,
+  showVoronoi, showField, showGhost,  // toggles (hidden keyboard shortcuts)
+  frame, mouse,
+  animalCount, largestAnimal,
+  prevAnimalCount, prevCommittedCount, prevLargest,
+  narration: { current, history: [{frame, short, long, kind}], flags: {}, lastNarratedFrame },
+  animalColors: Map<animalId, "r,g,b">,
+  animalKeys:   Map<signature,  "r,g,b">,
+  _delaunay, _voronoi, _neighbors,    // per‑frame caches
+}
+
+Mind = {
+  x, y, vx, vy,
+  gx, gy,                             // gauge cell integer coords
+  _assigned,                          // hysteretic reassignment flag
+  settle, committed, animalId,
+  animalColor, lastAnimalColor,
+  localS, localT, nMeanX, nMeanY,     // local proposals
+  tintIdx, phase, orgSeed, cilia,
+  commitFlash, commitChord, bornAt,
+  spawnedAt, dying,
+}
+```
+
+## Interaction map
+
+| Surface | Desktop | Mobile |
+| --- | --- | --- |
+| Pause / resume | Space, ⏸ button | ⏸ button |
+| Reseed | R, ↻ button | ↻ button |
+| Mute | M, 🔊 button, legend row | 🔊 button, legend row |
+| Voronoi toggle | V (hidden) | — |
+| Field toggle | F (hidden) | — |
+| Ghost lattice | G (hidden) | — |
+| Drop 3 minds | click | tap |
+| Paint trail | drag | drag |
+| Hover blurb | pointermove | — (touch pending) |
+| Info modal | ? button, ? key | ? button |
+| Legend + telemetry | always visible | ⌇ button |
+| Narrator drawer | verse row (▲) | verse row (▲) |
+| Escape | closes modal / drawer | — |
+
+## Deploy pipeline
+
+```
+edit → git commit → git push origin main
+                    │
+                    ▼
+              (GitHub main)
+                    │
+     railway up --detach (from local cwd)
+                    │
+                    ▼
+           Railway Nixpacks build
+                    │
+                    ▼
+        node server.js, PORT bound
+                    │
+                    ▼
+   latticeanimal-production.up.railway.app
+```
+
+`/healthz` probed by Railway. Domain generated once via `railway
+domain` and returned https URL.
+
+## Extension points
+
+- **Add a new life event** — add the trigger in `updateLivingPhase()`,
+  narrate + play its species voice with `audio.play(voiceOf(m), "<kind>")`.
+- **Add a new narrator event** — extend `detectNarrations()`; add a
+  guard flag if it should fire once.
+- **Add a new species** — add an entry to `SPECIES` in `audio.js` with
+  an unused `rgb` from `ANIMAL_HUES`, write a voice function
+  following the OscillatorNode + envelope pattern.
+- **Add a new render layer** — insert in `render()` at the right depth
+  (see the layer stack). Ambient layers early, particles / minds late.
+- **Add a new mobile control** — add an entry to the legend as
+  `<button class="row keys tappable" data-action="<name>">`, handle in
+  the `fireAction` switch in `index.html`.
+
+## Update this file whenever
+
+- A file is added or deleted in the repo
+- A public function's signature or contract changes
+- The render layer order shifts
+- A new state field is introduced
+- A new external dependency lands
+- A new deploy target or env var is added
+
+If you're an agent finishing a change: your commit message should
+mention that this file was updated in the same commit, or explain why
+it wasn't needed.
