@@ -1411,6 +1411,10 @@ function frame() {
   if (!state.paused) step();
   render();
   if (state.frame % 6 === 0) tick();
+  if (state.frame - lastSaveFrame > SAVE_EVERY_FRAMES) {
+    lastSaveFrame = state.frame;
+    saveField();
+  }
   requestAnimationFrame(frame);
 }
 
@@ -1585,9 +1589,100 @@ function hideMindTooltip() {
   _tooltip.hideTimer = setTimeout(() => { _tooltip.el.hidden = true; }, 200);
 }
 
+// ─── Persistence ─────────────────────────────────────────────────────────────
+// Save the field to localStorage every few seconds so the ecology survives
+// tab close, refresh, minimize-then-hours-later, or a Railway redeploy.
+const SAVE_KEY = "la:field:v1";
+const SAVE_EVERY_FRAMES = 300;   // ~5 seconds at 60fps
+let lastSaveFrame = 0;
+
+function serializeField() {
+  const minds = state.minds.map(m => ({
+    x: +m.x.toFixed(2), y: +m.y.toFixed(2),
+    vx: +m.vx.toFixed(3), vy: +m.vy.toFixed(3),
+    gx: m.gx, gy: m.gy, settle: m.settle,
+    committed: m.committed ? 1 : 0,
+    aid: m.animalId, ac: m.animalColor || null, lac: m.lastAnimalColor || null,
+    ti: m.tintIdx, ph: +m.phase.toFixed(2), os: +m.orgSeed.toFixed(3), ci: m.cilia,
+    ba: m.bornAt || 0, sa: m.spawnedAt || 0, cf: m.commitFlash | 0, cc: m.commitChord || 1,
+    a: !!m._assigned,
+  }));
+  return {
+    v: 1,
+    ts: Date.now(),
+    gauge: { cx: state.gauge.cx, cy: state.gauge.cy, theta: state.gauge.theta, s: state.gauge.s },
+    jitter: state.jitter, frame: state.frame,
+    W, H,
+    minds,
+    animalKeys: [...state.animalKeys.entries()],
+    narration: {
+      history: state.narration.history.slice(0, 30),
+      flags: state.narration.flags,
+      lastNarratedFrame: state.narration.lastNarratedFrame,
+    },
+  };
+}
+
+function saveField() {
+  try {
+    const data = serializeField();
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (e) { /* quota or private mode — silently drop */ }
+}
+
+function tryRestoreField() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || data.v !== 1) return false;
+    // Refuse a save older than 3 days — the ecology is fresh, not archaeological
+    if (Date.now() - (data.ts || 0) > 3 * 24 * 3600 * 1000) return false;
+    // Rehydrate
+    const sx = W / (data.W || W);
+    const sy = H / (data.H || H);
+    state.minds.length = 0;
+    for (const s of data.minds) {
+      const m = new Mind(s.x * sx, s.y * sy);
+      m.vx = s.vx; m.vy = s.vy;
+      m.gx = s.gx; m.gy = s.gy;
+      m.settle = s.settle;
+      m.committed = !!s.committed;
+      m.animalId = s.aid;
+      m.animalColor = s.ac || undefined;
+      m.lastAnimalColor = s.lac || undefined;
+      m.tintIdx = s.ti;
+      m.phase = s.ph;
+      m.orgSeed = s.os;
+      m.cilia = s.ci;
+      m.bornAt = s.ba;
+      m.spawnedAt = s.sa;
+      m.commitFlash = s.cf;
+      m.commitChord = s.cc;
+      m._assigned = s.a;
+      state.minds.push(m);
+    }
+    state.gauge.cx = data.gauge.cx * sx;
+    state.gauge.cy = data.gauge.cy * sy;
+    state.gauge.theta = data.gauge.theta;
+    state.gauge.s = data.gauge.s;
+    state.jitter = data.jitter || CFG.jitterFloor;
+    state.frame = data.frame || 0;
+    state.animalKeys = new Map(data.animalKeys || []);
+    if (data.narration) {
+      state.narration.history = data.narration.history || [];
+      state.narration.flags = data.narration.flags || {};
+      state.narration.lastNarratedFrame = data.narration.lastNarratedFrame || -1000;
+      renderDrawerLog();
+      if (state.narration.history[0]) setVerseText(state.narration.history[0].short);
+    }
+    return true;
+  } catch (e) { return false; }
+}
+
 // ─── Boot ────────────────────────────────────────────────────────────────────
 resize();
-seed();
+if (!tryRestoreField()) seed();
 requestAnimationFrame(frame);
 
 
@@ -1598,4 +1693,18 @@ setInterval(() => {
   if (window.innerWidth !== W || window.innerHeight !== H) resize();
 }, 400);
 window.addEventListener("load", resize);
-window.addEventListener("visibilitychange", () => { if (!document.hidden) resize(); });
+window.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    saveField();   // one last snapshot before the tab goes dormant
+  } else {
+    resize();
+    render();      // draw once immediately so the tab isn't blank while rAF ramps back up
+  }
+});
+window.addEventListener("beforeunload", () => saveField());
+// Also add a reset shortcut so R clears storage too — R already reseeds; make it clear the save
+const _origSeed = seed;
+seed = function () {
+  _origSeed();
+  try { localStorage.removeItem(SAVE_KEY); } catch {}
+};
