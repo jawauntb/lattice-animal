@@ -1492,6 +1492,7 @@ canvas.addEventListener("pointermove", (e) => {
   state.mouse.x = x;
   state.mouse.y = y;
   state.mouse.inside = true;
+  updateMindTooltip(e.clientX, e.clientY, x, y);
   if (paint.active) {
     const dx = x - paint.lastX, dy = y - paint.lastY;
     const d = Math.hypot(dx, dy);
@@ -1510,7 +1511,79 @@ canvas.addEventListener("pointerup", (e) => {
   try { canvas.releasePointerCapture(e.pointerId); } catch {}
 });
 canvas.addEventListener("pointercancel", () => { paint.active = false; });
-canvas.addEventListener("pointerleave", () => { state.mouse.inside = false; });
+canvas.addEventListener("pointerleave", () => {
+  state.mouse.inside = false;
+  hideMindTooltip();
+});
+
+// ─── Mind tooltip ────────────────────────────────────────────────────────────
+const _tooltip = { el: null, currentIdx: -1, hideTimer: 0 };
+function findMindNear(cx, cy, r = 20) {
+  const minds = state.minds;
+  let best = -1, bestD2 = r * r;
+  for (let i = 0; i < minds.length; i++) {
+    const m = minds[i];
+    const dx = m.x - cx, dy = m.y - cy;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD2) { bestD2 = d2; best = i; }
+  }
+  return best;
+}
+function describeMind(m) {
+  const speciesKey = audio.speciesForColor(m.animalColor || m.lastAnimalColor);
+  const species = speciesKey ? speciesKey.charAt(0).toUpperCase() + speciesKey.slice(1) : "unnamed";
+  let state1, state2;
+  if (m.animalId >= 0) {
+    state1 = `<em>animal cell</em>`;
+    state2 = `Part of a lattice animal — 4-adjacent to at least one other committed mind on the shared grid.`;
+  } else if (m.committed) {
+    state1 = `<em>committed</em>`;
+    state2 = `Locked to its cell on the shared gauge, but not yet bonded 4-adjacent to another committed mind — a single cell, not yet an animal.`;
+  } else if (m.settle > 0) {
+    state1 = `<em>bound</em>`;
+    state2 = `Sees its neighbors and is drifting toward its candidate lattice cell. About ${Math.round(100 * m.settle / CFG.commitFrames)}% of the way to committing.`;
+  } else {
+    state1 = `<em>searching</em>`;
+    state2 = `Still hunting for its spot. Its neighbor mean is pulling one way; the gauge target another. It'll settle when the two align.`;
+  }
+  const speciesLine = speciesKey
+    ? `<div class="tooltip-species">${species} · voice at commit and growth</div>`
+    : `<div class="tooltip-species">quiet species · silent</div>`;
+  return `${speciesLine}<div class="tooltip-body">${state1} — ${state2}</div>`;
+}
+function updateMindTooltip(clientX, clientY, canvasX, canvasY) {
+  if (!_tooltip.el) _tooltip.el = document.getElementById("mind-tooltip");
+  if (!_tooltip.el) return;
+  const idx = findMindNear(canvasX, canvasY, 22);
+  if (idx < 0) {
+    hideMindTooltip();
+    return;
+  }
+  const m = state.minds[idx];
+  if (idx !== _tooltip.currentIdx) {
+    _tooltip.currentIdx = idx;
+    _tooltip.el.innerHTML = describeMind(m);
+  }
+  // Position: offset from cursor, keep within viewport
+  const off = 14;
+  const w = 260, h = 90;
+  let px = clientX + off, py = clientY + off;
+  if (px + w > window.innerWidth - 8) px = clientX - off - w;
+  if (py + h > window.innerHeight - 8) py = clientY - off - h;
+  _tooltip.el.style.left = Math.max(8, px) + "px";
+  _tooltip.el.style.top = Math.max(8, py) + "px";
+  _tooltip.el.hidden = false;
+  requestAnimationFrame(() => _tooltip.el.classList.add("on"));
+  clearTimeout(_tooltip.hideTimer);
+}
+function hideMindTooltip() {
+  if (!_tooltip.el) _tooltip.el = document.getElementById("mind-tooltip");
+  if (!_tooltip.el) return;
+  _tooltip.currentIdx = -1;
+  _tooltip.el.classList.remove("on");
+  clearTimeout(_tooltip.hideTimer);
+  _tooltip.hideTimer = setTimeout(() => { _tooltip.el.hidden = true; }, 200);
+}
 
 // ─── Boot ────────────────────────────────────────────────────────────────────
 resize();

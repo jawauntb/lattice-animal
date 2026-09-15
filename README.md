@@ -1,0 +1,146 @@
+# Lattice Animal
+
+**A body made of minds — agreement by position, commitment by movement.**
+
+Live: https://latticeanimal-production.up.railway.app
+
+A living tessellation where a hundred independent cell‑minds find each
+other through movement alone and lock into a shared polyomino body. Each
+mind sees only its Voronoi neighbors and moves according to a local rule.
+From no communication, a shared grid emerges; from the shared grid,
+animals emerge; from the animals, an ecology.
+
+Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
+
+## What you're watching
+
+- **Colored cells** — every Voronoi region is painted in its mind's tint,
+  drawn from the objetd'art tissue palette.
+- **Vector cilia** — soft radial hairs plus a directional arrow showing
+  the mind's intended next move. A dashed cool arrow shows what the
+  mind's neighbor mean *would* suggest — wildly divergent in chaos,
+  converging with the tinted arrow as the gauge is negotiated.
+- **Ghost‑self dots** — tiny cream points around each uncommitted mind
+  mark its top candidate lattice cells. They collapse to one at commit.
+- **Cream perimeter** — the outline of every lattice animal, tinted by
+  the animal's own hue.
+- **Warm filaments** — bonds between adjacent committed minds. These are
+  the polyomino's actual edges. Different animals show up as different
+  colors from a 12‑hue palette.
+- **Birth flash rings** — expanding cream rings when a mind commits. When
+  multiple minds commit within the same tick, their rings amplify into a
+  brighter *chord* burst (Mind‑Cannot‑Smear‑Across‑Time).
+- **Cosmic dust and twinkles** — the medium the minds drift through.
+
+## The living phase
+
+Once ~85% of the field has committed, the ecology takes over:
+
+- **Wander** — an edge cell releases its commit and re‑targets an adjacent
+  unoccupied cell, drifting the animal one square across the grid.
+- **Spawn** — an edge cell births a new mind at an adjacent unoccupied
+  cell, inheriting the parent's animal color as a hint.
+- **Fission** — a large animal splits when a bridge cell releases its
+  commit.
+- **Merger** — a new commit bridging two animals fuses them into one.
+- **Dissolve** — an uncommitted mind that's drifted for too long fades
+  out over 45 frames.
+- **Gauge breath** — the shared rotation slowly drifts, so animals must
+  constantly re‑negotiate.
+
+## Ten voiced species
+
+Each animal has a species based on its hue. Ten species are procedurally
+voiced with Web Audio — no audio files ship with the site.
+
+| Species | Hue | Voice |
+| --- | --- | --- |
+| Lion | salmon | sawtooth roar with 22 Hz growl LFO |
+| Parakeet | cyan | 5‑note triangle trill |
+| Wolf | periwinkle | sine howl gliding 500→190 Hz |
+| Elephant | azure | brass‑bandpass trumpet |
+| Whale | orchid | 180→140 Hz sine song with 3 Hz FM |
+| Frog | spring | 2–3 low square ribbits |
+| Owl | mint | two soft sine hoots |
+| Dolphin | amber gold | high descending click |
+| Cricket | lemon | 4 tight ~5 kHz pulses |
+| Sparrow | lilac | 3‑note triangle warble |
+
+Rose and ember hues stay silent — the quiet species. Sounds trigger on
+commit (soft), growth milestones (full‑voice), merger, fission, and death.
+
+## Controls
+
+- **Space** or the ⏸ button — pause / resume
+- **R** or the ↻ button — reseed a fresh field
+- **M** or the speaker button — mute / unmute (persisted in localStorage)
+- **Tap / click** — drop three minds at that point
+- **Drag** — paint a trail of minds along the pointer path
+- **Hover a mind** — quick blurb of what it's doing and its species
+- **?** — open the full explainer
+- **⌇** — on mobile, reveal the legend + telemetry
+
+## Theory sources
+
+The demo weaves in ideas from a survey of CIMC research documents:
+
+- **DVFP (Dynamical Voronoi Fokker‑Planck)** — the dual‑vector display of
+  neighbor‑mean direction vs. actual velocity is a direct rendering of
+  the paper's central measurement.
+- **Mind Cannot Smear Across Time** — chord vs. arpeggio commit
+  interference on the birth‑flash rings.
+- **Learning When Not To Act** — the field's periodic quiet stillness
+  before the living phase.
+- **Geometric Meaning and Agency** — the ghost‑self rosette that
+  collapses into a single chosen cell at commit.
+- **Solving a Million‑Step LLM Task with Zero Errors (MAKER)** — the
+  bookend captions that state the demo's own philosophy.
+- **First‑Order Self / Tapestry of Valence / Ensemble Uncertainty** —
+  drives the per‑animal color palette and the delayed‑response cues on
+  neighbor‑caused vs. self‑caused motion.
+
+## Stack
+
+- Vanilla ES modules, no build step
+- `d3-delaunay` (loaded from a CDN) for Voronoi
+- Web Audio for procedural species voices
+- `express` + `compression` — served statically
+- Deployed on Railway (`node server.js` at `$PORT`, `/healthz` for the
+  health check)
+
+## Running locally
+
+```bash
+npm install
+npm start
+# → http://localhost:3000
+```
+
+Fresh icons and OG image are generated from a P‑pentomino source SVG:
+
+```bash
+node scripts/build-icons.mjs
+```
+
+## Iteration roadmap
+
+Immediate next frontier: **stacked / looped fly connectomes**. Each mind's
+policy becomes a small circuit motif drawn from the Janelia male‑CNS
+connectome (166,700 neurons, 125M synapses, publicly available). Loop
+count *K* is the mind's cognitive budget — reflex minds run *K=1*, deeper
+minds run *K=4*. The lattice animals stop being just physical bodies and
+become populations of small brains running the same fly‑wired circuit at
+different loop depths.
+
+## Deploy
+
+Auto‑merge to `main` triggers a Railway build via `railway up --detach`.
+Env vars and API keys land through Doppler (`jawaun-personal` shared
+config) as they're introduced.
+
+## Acknowledgements
+
+- Aesthetic borrowed from [objetd'art](https://objetdart-production.up.railway.app/) —
+  tissue, cells, stars, interference, quarks, atoms, dna.
+- CIMC and the *Lattice Animals* hackathon frame.
+- Anthropic Claude Code for the pair‑coding.

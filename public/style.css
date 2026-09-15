@@ -291,6 +291,39 @@ body {
 .info-btn { grid-column: 1; justify-self: start; font-style: italic; }
 .menu-btn { grid-column: 3; justify-self: end; display: none; }
 
+/* ── Mind hover tooltip ──────────────────────────────────────────────── */
+.mind-tooltip {
+  position: fixed;
+  z-index: 6;
+  pointer-events: none;
+  max-width: 260px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(14,16,26,0.94), rgba(10,12,22,0.94));
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  color: var(--ink);
+  font-family: "Fraunces", serif;
+  font-size: 13px;
+  font-variation-settings: "opsz" 24;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 140ms ease, transform 160ms ease;
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+}
+.mind-tooltip.on { opacity: 1; transform: translateY(0); }
+.mind-tooltip .tooltip-species {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  margin-bottom: 4px;
+}
+.mind-tooltip .tooltip-body em { color: var(--bound); font-style: italic; }
+
 /* ── Narrator drawer ─────────────────────────────────────────────────── */
 .narrator-drawer {
   position: fixed;
