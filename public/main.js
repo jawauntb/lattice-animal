@@ -1,5 +1,15 @@
 import { Delaunay } from "d3-delaunay";
 
+// ─── Palette (drawn from objetd'art tissue: cool + warm, muted, luminous) ────
+const TINT = [
+  "231, 172, 82",   // amber
+  "134, 186, 168",  // teal
+  "150, 178, 226",  // soft blue
+  "226, 140, 108",  // coral
+];
+const CREAM = "242, 238, 230";
+const NIGHT = { r: 6, g: 8, b: 16 };
+
 // ─── Verses (rotate at soft cadence) ─────────────────────────────────────────
 const VERSES = [
   "no channel but movement · no commitment but position",
@@ -14,31 +24,36 @@ const VERSES = [
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const CFG = {
-  seedCount: 128,
+  seedCount: 132,
   // Gauge negotiation
-  spacingInit: 68,
+  spacingInit: 70,
   spacingMin: 46,
   spacingMax: 110,
-  gaugeLR: 0.018,          // how fast global gauge follows local consensus
+  gaugeLR: 0.018,
   // Movement
-  snapK: 0.075,            // pull toward nearest gauge cell
-  neighborK: 0.006,        // pull to become 4-adjacent to a neighbor at gauge distance
-  jitterInit: 2.2,         // annealing temperature (position noise)
-  jitterFloor: 0.05,       // small idle temperature — enough for shimmer, not drift
-  jitterAnneal: 0.9968,
-  drag: 0.90,              // velocity damping
-  maxSpeed: 3.4,
+  snapK: 0.075,
+  neighborK: 0.006,
+  jitterInit: 2.2,
+  jitterFloor: 0.04,
+  jitterAnneal: 0.990,     // ~2s to hit floor at 60fps; robust to slower framerates
+  drag: 0.90,
+  maxSpeed: 3.6,
   // Commitment
-  commitDist: 5.5,         // distance-to-cell to be "at" a cell
-  commitFrames: 45,        // how long steady before committed
-  releaseDist: 13.0,       // drift back into "bound"
+  commitDist: 6.0,
+  commitFrames: 40,
+  releaseDist: 14.0,
   // Rendering
-  vectorScale: 9,          // draw velocity × this
-  vectorMin: 5,
-  vectorMax: 40,
-  voronoiAlpha: 0.20,
-  trailFade: 0.55,         // lower = longer motion trails
-  bgTintR: 5, bgTintG: 6, bgTintB: 12,
+  vectorScale: 7,
+  vectorMin: 4,
+  vectorMax: 34,
+  voronoiAlpha: 0.12,     // faint cell boundaries so the fill reads
+  membraneAlpha: 0.22,
+  membraneAlphaCommitted: 0.38,
+  trailFade: 0.98,        // near-full clear; motion trails come from arrows themselves
+  // Cosmos
+  dustCount: 160,
+  twinkleCount: 44,
+  breathHz: 0.05,         // slow global breath
 };
 
 // ─── DOM / Canvas setup ──────────────────────────────────────────────────────
@@ -56,17 +71,16 @@ function resize() {
   canvas.style.width = W + "px";
   canvas.style.height = H + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  makeDust();
 }
 window.addEventListener("resize", resize);
-resize();
 
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
   minds: [],
-  gauge: {
-    // origin (cx, cy), rotation theta, spacing s
-    cx: 0, cy: 0, theta: 0, s: CFG.spacingInit,
-  },
+  dust: [],
+  twinkles: [],
+  gauge: { cx: 0, cy: 0, theta: 0, s: CFG.spacingInit },
   jitter: CFG.jitterInit,
   paused: false,
   showVoronoi: true,
@@ -75,29 +89,40 @@ const state = {
   frame: 0,
   verseIndex: 0,
   verseTimer: 0,
+  mouse: { x: -1e6, y: -1e6, inside: false },
+  animalCount: 0,
+  largestAnimal: 0,
 };
+
+// hash → integer in [0, n)
+function hash(a, b) {
+  let h = (a * 374761393) ^ (b * 668265263);
+  h = (h ^ (h >>> 13)) * 1274126177;
+  return (h ^ (h >>> 16)) >>> 0;
+}
 
 class Mind {
   constructor(x, y) {
     this.x = x; this.y = y;
     this.vx = 0; this.vy = 0;
-    this.gx = 0; this.gy = 0;     // integer gauge coordinate (nearest)
-    this.settle = 0;              // frames near a gauge cell
+    this.gx = 0; this.gy = 0;
+    this.settle = 0;
     this.committed = false;
     this.animalId = -1;
-    // local gauge estimate (each mind proposes; global averages)
     this.localS = CFG.spacingInit;
     this.localT = 0;
+    // per-mind identity: tint (from TINT), phase, organelle seed
+    this.tintIdx = hash((x * 1000) | 0, (y * 1000) | 0) % TINT.length;
+    this.phase = Math.random() * Math.PI * 2;
+    this.orgSeed = Math.random();
   }
 }
 
 function seed(count = CFG.seedCount) {
   state.minds.length = 0;
   const cx = W * 0.5, cy = H * 0.5;
-  // Scale radius to viewport with a slight elongation matching aspect
-  const R = Math.min(W, H) * 0.46;
+  const R = Math.min(W, H) * 0.44;
   for (let i = 0; i < count; i++) {
-    // sunflower-ish scatter with jitter — gives room to breathe
     const t = i * 2.399963;
     const r = R * Math.sqrt((i + 0.5) / count) + (Math.random() - 0.5) * 30;
     const x = cx + Math.cos(t) * r * (W / Math.min(W, H)) + (Math.random() - 0.5) * 22;
@@ -111,10 +136,35 @@ function seed(count = CFG.seedCount) {
   state.jitter = CFG.jitterInit;
   state.frame = 0;
 }
-seed();
+
+// ─── Cosmos: dust + twinkles ─────────────────────────────────────────────────
+function makeDust() {
+  state.dust.length = 0;
+  for (let i = 0; i < CFG.dustCount; i++) {
+    state.dust.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      z: 0.3 + Math.random() * 0.9,      // depth: bigger, brighter, slower
+      vx: (Math.random() - 0.5) * 0.05,
+      vy: (Math.random() - 0.5) * 0.05,
+      hue: TINT[(Math.random() * TINT.length) | 0],
+      a: 0.06 + Math.random() * 0.10,
+    });
+  }
+  state.twinkles.length = 0;
+  for (let i = 0; i < CFG.twinkleCount; i++) {
+    state.twinkles.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.6 + Math.random() * 1.6,
+      size: 0.5 + Math.random() * 1.4,
+      hue: Math.random() < 0.7 ? CREAM : TINT[(Math.random() * TINT.length) | 0],
+    });
+  }
+}
 
 // ─── Gauge math ──────────────────────────────────────────────────────────────
-// world <-> gauge coords
 function worldToGauge(x, y, g = state.gauge) {
   const dx = x - g.cx, dy = y - g.cy;
   const c = Math.cos(-g.theta), s = Math.sin(-g.theta);
@@ -130,13 +180,13 @@ function nearestCell(x, y, g = state.gauge) {
   const { u, v } = worldToGauge(x, y, g);
   return { gx: Math.round(u), gy: Math.round(v) };
 }
+function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
 
 // ─── Simulation step ─────────────────────────────────────────────────────────
 function step() {
   const minds = state.minds;
   if (minds.length < 2) return;
 
-  // Voronoi from current positions
   const pts = new Float64Array(minds.length * 2);
   for (let i = 0; i < minds.length; i++) {
     pts[i * 2] = minds[i].x;
@@ -144,15 +194,12 @@ function step() {
   }
   const delaunay = new Delaunay(pts);
 
-  // neighbors per point via halfedges
   const neighborsOf = (i) => {
     const arr = [];
     for (const j of delaunay.neighbors(i)) arr.push(j);
     return arr;
   };
 
-  // 1) Local gauge proposals — each mind reads its Voronoi neighbors.
-  //    localS = median distance to neighbors ; localT = dominant orientation.
   let meanS = 0, meanC = 0, meanSn = 0, count = 0;
   const neighborsCache = new Array(minds.length);
   for (let i = 0; i < minds.length; i++) {
@@ -167,7 +214,6 @@ function step() {
       const dy = minds[j].y - m.y;
       const d = Math.hypot(dx, dy);
       dists.push(d);
-      // 4-fold orientation (square lattice symmetry)
       const a = Math.atan2(dy, dx);
       sumSin4 += Math.sin(4 * a);
       sumCos4 += Math.cos(4 * a);
@@ -183,16 +229,19 @@ function step() {
   }
 
   if (count > 0) {
-    const targetS = meanS / count;
+    // Rotation adapts freely, but spacing stays anchored to the initial size —
+    // free adaptation collapses (contracting minds → smaller spacing → more contraction).
     const targetT = Math.atan2(meanSn / count, meanC / count) / 4;
-    // Angle wrap: bring current theta into the same fold-fundamental as target
     let dT = targetT - state.gauge.theta;
     while (dT > Math.PI / 4) dT -= Math.PI / 2;
     while (dT < -Math.PI / 4) dT += Math.PI / 2;
     state.gauge.theta += dT * CFG.gaugeLR;
-    state.gauge.s += (targetS - state.gauge.s) * CFG.gaugeLR;
+    // Very slow spacing tracking, clamped to a tight window.
+    const targetS = meanS / count;
+    const dS = targetS - state.gauge.s;
+    state.gauge.s = clamp(state.gauge.s + dS * (CFG.gaugeLR * 0.15),
+                         CFG.spacingInit * 0.85, CFG.spacingInit * 1.15);
 
-    // Origin drifts toward centroid of committed minds (or all if none)
     let ox = 0, oy = 0, n = 0;
     for (const m of minds) {
       if (m.committed) { ox += m.x; oy += m.y; n++; }
@@ -201,7 +250,6 @@ function step() {
       for (const m of minds) { ox += m.x; oy += m.y; }
       n = minds.length;
     }
-    // Snap origin to nearest gauge cell so committed minds line up
     const meanX = ox / n, meanY = oy / n;
     const { u, v } = worldToGauge(meanX, meanY);
     const du = u - Math.round(u), dv = v - Math.round(v);
@@ -210,21 +258,16 @@ function step() {
     state.gauge.cy += (du * s + dv * c) * state.gauge.s * CFG.gaugeLR;
   }
 
-  // 2) Forces on each mind
   for (let i = 0; i < minds.length; i++) {
     const m = minds[i];
     const cell = nearestCell(m.x, m.y);
     const target = gaugeToWorld(cell.gx, cell.gy);
     m.gx = cell.gx; m.gy = cell.gy;
 
-    // Snap toward nearest lattice cell — anneals with temperature so early on
-    // it's soft, later it's decisive.
     const snapStrength = CFG.snapK * (0.5 + 0.7 * (1 - state.jitter / CFG.jitterInit));
     let fx = (target.x - m.x) * snapStrength;
     let fy = (target.y - m.y) * snapStrength;
 
-    // Neighbor coherence — bias motion so distance to each Voronoi neighbor
-    // approaches an integer multiple of spacing (so pairs seat at 4-adjacency)
     const N = neighborsCache[i] || [];
     for (const j of N) {
       const dx = minds[j].x - m.x;
@@ -235,13 +278,11 @@ function step() {
       const k = Math.max(1, Math.round(d / s));
       const desired = k * s;
       const err = d - desired;
-      // Attractive if too far, repulsive if too close, relative to nearest lattice ring
       const push = err * CFG.neighborK / N.length;
       fx += (dx / d) * push;
       fy += (dy / d) * push;
     }
 
-    // Hard-repel co-located: two minds trying to inhabit the same cell
     for (const j of N) {
       const o = minds[j];
       if (o.gx === m.gx && o.gy === m.gy) {
@@ -252,7 +293,6 @@ function step() {
       }
     }
 
-    // Noise (temperature)
     fx += (Math.random() - 0.5) * state.jitter;
     fy += (Math.random() - 0.5) * state.jitter;
 
@@ -266,15 +306,15 @@ function step() {
     m.x += m.vx;
     m.y += m.vy;
 
-    // Soft wall
     const pad = 20;
     if (m.x < pad) { m.x = pad; m.vx *= -0.4; }
     if (m.y < pad) { m.y = pad; m.vy *= -0.4; }
     if (m.x > W - pad) { m.x = W - pad; m.vx *= -0.4; }
     if (m.y > H - pad) { m.y = H - pad; m.vy *= -0.4; }
+
+    m.phase += 0.03 + 0.02 * m.orgSeed;
   }
 
-  // 3) Commit / release based on proximity to gauge cell
   for (const m of minds) {
     const t = gaugeToWorld(m.gx, m.gy);
     const d = Math.hypot(m.x - t.x, m.y - t.y);
@@ -287,7 +327,6 @@ function step() {
     }
   }
 
-  // 4) Discover animals: 4-adjacent components of committed minds on the gauge
   const key = (gx, gy) => `${gx},${gy}`;
   const cellMap = new Map();
   for (let i = 0; i < minds.length; i++) {
@@ -300,7 +339,6 @@ function step() {
   const animalSize = [];
   for (const [k, i] of cellMap) {
     if (visited.has(k)) continue;
-    // BFS
     const q = [k];
     visited.add(k);
     const members = [];
@@ -327,11 +365,17 @@ function step() {
   state.animalCount = animalCount;
   state.largestAnimal = animalSize.reduce((a, b) => Math.max(a, b), 0);
 
-  // 5) Anneal temperature
   state.jitter = Math.max(CFG.jitterFloor, state.jitter * CFG.jitterAnneal);
   state.frame++;
 
-  // Verse rotation
+  // Drift dust
+  for (const d of state.dust) {
+    d.x += d.vx * d.z;
+    d.y += d.vy * d.z;
+    if (d.x < 0) d.x += W; else if (d.x > W) d.x -= W;
+    if (d.y < 0) d.y += H; else if (d.y > H) d.y -= H;
+  }
+
   state.verseTimer++;
   if (state.verseTimer > 60 * 14) {
     state.verseTimer = 0;
@@ -339,30 +383,87 @@ function step() {
     updateVerse();
   }
 
-  // Cache delaunay for renderer
   state._delaunay = delaunay;
+  state._voronoi = delaunay.voronoi([0, 0, W, H]);
   state._neighbors = neighborsCache;
 }
 
 // ─── Rendering ───────────────────────────────────────────────────────────────
+function breath() {
+  const t = state.frame / 60;
+  return 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * CFG.breathHz);
+}
+
 function render() {
-  // Soft trail: fade previous frame instead of hard clear — gives a whisper of motion.
+  // Very soft trail — mostly re-paints, but leaves a ghost of motion.
   ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = `rgba(${CFG.bgTintR}, ${CFG.bgTintG}, ${CFG.bgTintB}, ${CFG.trailFade})`;
+  ctx.fillStyle = `rgba(${NIGHT.r}, ${NIGHT.g}, ${NIGHT.b}, ${CFG.trailFade})`;
   ctx.fillRect(0, 0, W, H);
 
+  drawAmbient();
+  drawDust();
+  drawTwinkles();
   drawGhostLattice();
-  drawVoronoi();
-  drawAnimalBonds();
-  drawField();
-  drawMinds();
+  drawMembranes();     // Voronoi cells filled with each mind's tint (soft)
+  drawVoronoiEdges();  // very faint boundary lines above the fills
+  drawAnimalOutline(); // the polyomino body
+  drawBonds();         // filaments between minds
+  drawField();         // vector cilia
+  drawMinds();         // nucleus + organelles
+}
+
+function drawAmbient() {
+  // A wide, breathing radial glow — never brown, always cool with a warm heart.
+  const b = breath();
+  const cx = W * 0.5, cy = H * 0.52;
+  const r = Math.max(W, H) * 0.65;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0, `rgba(60, 100, 180, ${0.06 + 0.03 * b})`);
+  g.addColorStop(0.4, `rgba(30, 40, 90, ${0.03 + 0.02 * b})`);
+  g.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawDust() {
+  ctx.save();
+  for (const d of state.dust) {
+    ctx.fillStyle = `rgba(${d.hue}, ${d.a * d.z})`;
+    const r = 0.6 + d.z * 0.9;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawTwinkles() {
+  const t = state.frame / 60;
+  ctx.save();
+  for (const s of state.twinkles) {
+    const a = 0.35 + 0.35 * Math.sin(t * s.speed + s.phase);
+    if (a < 0.05) continue;
+    ctx.fillStyle = `rgba(${s.hue}, ${a})`;
+    ctx.shadowColor = `rgba(${s.hue}, ${a})`;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+    // 4-point star cross
+    ctx.strokeStyle = `rgba(${s.hue}, ${a * 0.6})`;
+    ctx.lineWidth = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(s.x - s.size * 3, s.y); ctx.lineTo(s.x + s.size * 3, s.y);
+    ctx.moveTo(s.x, s.y - s.size * 3); ctx.lineTo(s.x, s.y + s.size * 3);
+    ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+  ctx.restore();
 }
 
 function drawGhostLattice() {
   if (!state.showGhost) return;
   const g = state.gauge;
-  const s = g.s;
-  // sweep enough u, v to cover the viewport
   const corners = [[0,0],[W,0],[W,H],[0,H]].map(([x,y]) => worldToGauge(x, y));
   let umin = Infinity, umax = -Infinity, vmin = Infinity, vmax = -Infinity;
   for (const c of corners) {
@@ -371,8 +472,7 @@ function drawGhostLattice() {
   }
   umin = Math.floor(umin) - 1; umax = Math.ceil(umax) + 1;
   vmin = Math.floor(vmin) - 1; vmax = Math.ceil(vmax) + 1;
-
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.045)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let u = umin; u <= umax; u++) {
@@ -388,14 +488,43 @@ function drawGhostLattice() {
   ctx.stroke();
 }
 
-function drawVoronoi() {
-  if (!state.showVoronoi || !state._delaunay) return;
-  const del = state._delaunay;
-  const vor = del.voronoi([0, 0, W, H]);
-
+function drawMembranes() {
+  const vor = state._voronoi;
+  if (!vor) return;
+  const minds = state.minds;
+  const mx = state.mouse.x, my = state.mouse.y;
+  const b = 0.85 + 0.15 * breath();
   ctx.save();
-  ctx.strokeStyle = `rgba(220, 232, 255, ${CFG.voronoiAlpha})`;
-  ctx.lineWidth = 0.85;
+  for (let i = 0; i < minds.length; i++) {
+    const m = minds[i];
+    const poly = vor.cellPolygon(i);
+    if (!poly) continue;
+    let alpha = m.committed ? CFG.membraneAlphaCommitted : CFG.membraneAlpha;
+    alpha *= b;
+    // lens: warm cells near the pointer slightly brighter
+    if (state.mouse.inside) {
+      const d = Math.hypot(m.x - mx, m.y - my);
+      const boost = Math.max(0, 1 - d / 220);
+      alpha *= 1 + boost * 0.5;
+    }
+    ctx.beginPath();
+    for (let k = 0; k < poly.length; k++) {
+      const [x, y] = poly[k];
+      if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${TINT[m.tintIdx]}, ${alpha})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawVoronoiEdges() {
+  if (!state.showVoronoi || !state._voronoi) return;
+  const vor = state._voronoi;
+  ctx.save();
+  ctx.strokeStyle = `rgba(${CREAM}, ${CFG.voronoiAlpha})`;
+  ctx.lineWidth = 0.7;
   ctx.lineJoin = "round";
   ctx.beginPath();
   vor.render(ctx);
@@ -403,61 +532,141 @@ function drawVoronoi() {
   ctx.restore();
 }
 
-function drawAnimalBonds() {
+function drawAnimalOutline() {
+  const minds = state.minds;
+  if (!minds.length || !state._delaunay) return;
+  // Build map: gauge cell → mind index (only committed)
+  const cellMap = new Map();
+  for (let i = 0; i < minds.length; i++) {
+    const m = minds[i];
+    if (m.animalId >= 0) cellMap.set(`${m.gx},${m.gy}`, i);
+  }
+  if (!cellMap.size) return;
+  const vor = state._voronoi;
+  if (!vor) return;
+
+  // Warm halo behind the animal body — soft cream glow with amber core
+  ctx.save();
+  for (const i of cellMap.values()) {
+    const m = minds[i];
+    const r = state.gauge.s * 0.75;
+    const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, r);
+    g.addColorStop(0, `rgba(${CREAM}, 0.14)`);
+    g.addColorStop(0.55, "rgba(231, 172, 82, 0.05)");
+    g.addColorStop(1, "rgba(231, 172, 82, 0.00)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Perimeter of the animal body: for each animal-member Voronoi cell,
+  // stroke only those polygon edges whose adjacent site is NOT in the animal.
+  // We approximate "adjacent site" by matching each edge to the nearest Delaunay neighbor.
+  ctx.save();
+  ctx.strokeStyle = `rgba(${CREAM}, 0.65)`;
+  ctx.shadowColor = `rgba(${CREAM}, 0.8)`;
+  ctx.shadowBlur = 8;
+  ctx.lineWidth = 1.1;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (const i of cellMap.values()) {
+    const m = minds[i];
+    const poly = vor.cellPolygon(i);
+    if (!poly) continue;
+    const N = state._neighbors[i] || [];
+    for (let k = 0; k < poly.length - 1; k++) {
+      const [x1, y1] = poly[k];
+      const [x2, y2] = poly[k + 1];
+      const midx = (x1 + x2) * 0.5, midy = (y1 + y2) * 0.5;
+      // find nearest neighbor site to the midpoint — that's the site sharing this edge
+      let bestJ = -1, bestD2 = Infinity;
+      for (const j of N) {
+        const dx = minds[j].x - midx, dy = minds[j].y - midy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { bestD2 = d2; bestJ = j; }
+      }
+      // if the neighbor across this edge is also in the same animal, it's an interior edge
+      if (bestJ >= 0 && minds[bestJ].animalId === m.animalId) continue;
+      // otherwise it's a perimeter edge — draw
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+  }
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawBonds() {
   const minds = state.minds;
   if (!minds.length) return;
 
-  // Index committed minds by their gauge cell so we can find 4-adjacent pairs.
+  // committed 4-adjacency bonds (warm) — the polyomino edges
   const map = new Map();
   for (let i = 0; i < minds.length; i++) {
     const m = minds[i];
     if (m.animalId < 0) continue;
     map.set(`${m.gx},${m.gy}`, i);
   }
-  if (!map.size) return;
 
   ctx.save();
-
-  // Soft warm auras first, painted behind the bonds and dots.
-  for (const i of map.values()) {
-    const m = minds[i];
-    const r = state.gauge.s * 0.55;
-    const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, r);
-    g.addColorStop(0, "rgba(255, 220, 150, 0.16)");
-    g.addColorStop(0.55, "rgba(255, 200, 110, 0.05)");
-    g.addColorStop(1, "rgba(255, 200, 110, 0.00)");
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Bonds: connect 4-adjacent committed cells (drawn once per pair).
-  ctx.lineCap = "round";
-  ctx.shadowColor = "rgba(255, 210, 120, 0.9)";
-  ctx.shadowBlur = 12;
-  ctx.strokeStyle = "rgba(255, 220, 140, 0.85)";
-  ctx.lineWidth = 1.6;
-
-  const seen = new Set();
-  const dirs = [[1, 0], [0, 1]]; // only forward dirs to avoid duplicates
-  for (const [key, i] of map) {
-    const m = minds[i];
-    for (const [dx, dy] of dirs) {
-      const nk = `${m.gx + dx},${m.gy + dy}`;
-      const j = map.get(nk);
-      if (j === undefined) continue;
-      const edgeKey = key + "|" + nk;
-      if (seen.has(edgeKey)) continue;
-      seen.add(edgeKey);
-      const o = minds[j];
-      ctx.beginPath();
-      ctx.moveTo(m.x, m.y);
-      ctx.lineTo(o.x, o.y);
-      ctx.stroke();
+  // First: subtle cream filaments between Voronoi neighbors that are close to gauge distance.
+  // Reads as tissue "connective fibers" without committing to structure.
+  if (state._neighbors) {
+    ctx.strokeStyle = `rgba(${CREAM}, 0.10)`;
+    ctx.lineWidth = 0.55;
+    for (let i = 0; i < minds.length; i++) {
+      const m = minds[i];
+      const N = state._neighbors[i];
+      for (const j of N) {
+        if (j <= i) continue;
+        const o = minds[j];
+        const d = Math.hypot(m.x - o.x, m.y - o.y);
+        // fade with distance around gauge s
+        const s = state.gauge.s;
+        const off = Math.abs(d - s) / s;
+        const a = clamp(1 - off * 2.2, 0, 1);
+        if (a < 0.05) continue;
+        ctx.globalAlpha = a * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(m.x, m.y);
+        ctx.lineTo(o.x, o.y);
+        ctx.stroke();
+      }
     }
+    ctx.globalAlpha = 1;
   }
 
+  // Bright committed bonds
+  if (map.size) {
+    ctx.lineCap = "round";
+    ctx.shadowColor = "rgba(231, 172, 82, 0.85)";
+    ctx.shadowBlur = 9;
+    ctx.strokeStyle = "rgba(248, 220, 150, 0.85)";
+    ctx.lineWidth = 1.35;
+    const seen = new Set();
+    const dirs = [[1, 0], [0, 1]];
+    for (const [key, i] of map) {
+      const m = minds[i];
+      for (const [dx, dy] of dirs) {
+        const nk = `${m.gx + dx},${m.gy + dy}`;
+        const j = map.get(nk);
+        if (j === undefined) continue;
+        const edgeKey = key + "|" + nk;
+        if (seen.has(edgeKey)) continue;
+        seen.add(edgeKey);
+        const o = minds[j];
+        ctx.beginPath();
+        ctx.moveTo(m.x, m.y);
+        ctx.lineTo(o.x, o.y);
+        ctx.stroke();
+      }
+    }
+    ctx.shadowBlur = 0;
+  }
   ctx.restore();
 }
 
@@ -465,61 +674,69 @@ function drawField() {
   if (!state.showField) return;
   const minds = state.minds;
   ctx.save();
-  ctx.strokeStyle = "rgba(140, 195, 255, 0.95)";
-  ctx.fillStyle = "rgba(160, 210, 255, 0.95)";
-  ctx.lineWidth = 1.35;
+  ctx.lineWidth = 1.05;
   ctx.lineCap = "round";
-  ctx.shadowColor = "rgba(90, 160, 255, 0.55)";
-  ctx.shadowBlur = 6;
+  ctx.shadowColor = `rgba(${CREAM}, 0.4)`;
+  ctx.shadowBlur = 4;
   for (const m of minds) {
     const sp = Math.hypot(m.vx, m.vy);
     if (sp < 0.06) continue;
     let len = Math.max(CFG.vectorMin, Math.min(CFG.vectorMax, sp * CFG.vectorScale));
     const ux = m.vx / sp, uy = m.vy / sp;
     const ex = m.x + ux * len, ey = m.y + uy * len;
+    // color follows mind tint, dimmed
+    const tint = m.committed ? CREAM : TINT[m.tintIdx];
+    ctx.strokeStyle = `rgba(${tint}, 0.7)`;
+    ctx.fillStyle = `rgba(${tint}, 0.85)`;
     ctx.beginPath();
     ctx.moveTo(m.x, m.y);
     ctx.lineTo(ex, ey);
     ctx.stroke();
-    // arrowhead
-    const hx = -uy, hy = ux;
-    const ax = ex - ux * 5.5 + hx * 3.0, ay = ey - uy * 5.5 + hy * 3.0;
-    const bx = ex - ux * 5.5 - hx * 3.0, by = ey - uy * 5.5 - hy * 3.0;
+    // small tip
     ctx.beginPath();
-    ctx.moveTo(ex, ey); ctx.lineTo(ax, ay); ctx.lineTo(bx, by); ctx.closePath();
+    ctx.arc(ex, ey, 1.4, 0, Math.PI * 2);
     ctx.fill();
   }
+  ctx.shadowBlur = 0;
   ctx.restore();
 }
 
 function drawMinds() {
   const minds = state.minds;
+  const t = state.frame / 60;
   ctx.save();
   for (let i = 0; i < minds.length; i++) {
     const m = minds[i];
-    let core, halo, r = 3.4;
-    if (m.animalId >= 0) {
-      core = "#ffe38a"; halo = "rgba(255, 209, 92, 0.95)"; r = 4.6;
-    } else if (m.committed) {
-      core = "#fbe7a2"; halo = "rgba(246, 214, 122, 0.85)"; r = 4.0;
-    } else if ((state._neighbors?.[i]?.length ?? 0) > 0) {
-      core = "#d9efff"; halo = "rgba(165, 224, 255, 0.85)"; r = 3.6;
-    } else {
-      core = "#bcd8ff"; halo = "rgba(127, 178, 255, 0.75)";
-    }
-    // outer halo — soft luminous
-    ctx.shadowColor = halo;
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = halo;
+    const tint = TINT[m.tintIdx];
+    const brightness = m.animalId >= 0 ? 1 : m.committed ? 0.85 : 0.7;
+    // outer soft glow
+    ctx.shadowColor = `rgba(${m.animalId >= 0 ? CREAM : tint}, ${0.85 * brightness})`;
+    ctx.shadowBlur = m.animalId >= 0 ? 18 : 10;
+    ctx.fillStyle = `rgba(${m.animalId >= 0 ? CREAM : tint}, ${0.9 * brightness})`;
     ctx.beginPath();
-    ctx.arc(m.x, m.y, r + 0.4, 0, Math.PI * 2);
+    ctx.arc(m.x, m.y, m.animalId >= 0 ? 3.4 : 3.0, 0, Math.PI * 2);
     ctx.fill();
-    // inner core — crisp white-ish
+    // crisp inner core
     ctx.shadowBlur = 0;
-    ctx.fillStyle = core;
+    ctx.fillStyle = `rgba(${CREAM}, ${0.9 * brightness})`;
     ctx.beginPath();
-    ctx.arc(m.x, m.y, Math.max(1.6, r * 0.55), 0, Math.PI * 2);
+    ctx.arc(m.x, m.y, 1.35, 0, Math.PI * 2);
     ctx.fill();
+
+    // Organelles orbit inside committed cells — tiny slow dots around the nucleus
+    if (m.committed) {
+      const n = 3;
+      const rr = state.gauge.s * 0.22;
+      for (let k = 0; k < n; k++) {
+        const a = m.phase * 0.35 + (k / n) * Math.PI * 2 + t * 0.15;
+        const ox = m.x + Math.cos(a) * rr * (0.7 + 0.3 * Math.sin(t + k));
+        const oy = m.y + Math.sin(a) * rr * (0.7 + 0.3 * Math.cos(t + k));
+        ctx.fillStyle = `rgba(${CREAM}, 0.55)`;
+        ctx.beginPath();
+        ctx.arc(ox, oy, 0.9, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
   ctx.restore();
 }
@@ -531,7 +748,6 @@ function tick() {
   el("t-committed").textContent = state.minds.filter(m => m.committed).length;
   el("t-animals").textContent = state.animalCount ?? 0;
   el("t-largest").textContent = state.largestAnimal ?? 0;
-  // entropy-ish measure: normalized dispersion in cell offsets
   let se = 0;
   for (const m of state.minds) {
     const t = gaugeToWorld(m.gx, m.gy);
@@ -557,7 +773,6 @@ function frame() {
   if (state.frame % 6 === 0) tick();
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 window.addEventListener("keydown", (e) => {
@@ -573,7 +788,6 @@ canvas.addEventListener("pointerdown", (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
-  // drop 3 minds near the click — a seed of a possible animal
   for (let i = 0; i < 3; i++) {
     const jx = (Math.random() - 0.5) * state.gauge.s * 0.8;
     const jy = (Math.random() - 0.5) * state.gauge.s * 0.8;
@@ -582,5 +796,23 @@ canvas.addEventListener("pointerdown", (e) => {
   state.jitter = Math.max(state.jitter, 0.9);
 });
 
-// ─── Utilities ───────────────────────────────────────────────────────────────
-function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+canvas.addEventListener("pointermove", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  state.mouse.x = e.clientX - rect.left;
+  state.mouse.y = e.clientY - rect.top;
+  state.mouse.inside = true;
+});
+canvas.addEventListener("pointerleave", () => { state.mouse.inside = false; });
+
+// ─── Boot ────────────────────────────────────────────────────────────────────
+resize();
+seed();
+requestAnimationFrame(frame);
+
+// Some Chrome UI (debug bars, download bars) shifts viewport without firing
+// resize. Poll size and re-fit if it changed.
+setInterval(() => {
+  if (window.innerWidth !== W || window.innerHeight !== H) resize();
+}, 400);
+window.addEventListener("load", resize);
+window.addEventListener("visibilitychange", () => { if (!document.hidden) resize(); });
