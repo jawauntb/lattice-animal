@@ -66,6 +66,9 @@
         <button class="action-btn" id="btn-reseed" aria-label="Reseed the field" title="Reseed a fresh field (R)">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7c3.31 0 6 2.69 6 6a6 6 0 1 1-11.66-2h-2.09A8 8 0 1 0 12 5z" fill="currentColor"/></svg>
         </button>
+        <button class="action-btn" id="btn-gap" aria-label="Toggle chord or arpeggio" title="Chord: commits fire together (A)">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 5v14M12 8v11M17 3v16" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        </button>
       </div>
     </div>
   </header>
@@ -97,6 +100,7 @@
     <div class="kv"><span class="k">entropy</span><span class="v" id="t-entropy">–</span></div>
     <div class="kv"><span class="k">V</span><span class="v" id="t-v">–</span></div>
     <div class="kv"><span class="k">χ</span><span class="v" id="t-chi">–</span></div>
+    <div class="kv"><span class="k">width</span><span class="v" id="t-width">–</span></div>
   </aside>
 
   <footer class="chrome bottom">
@@ -125,6 +129,10 @@
       </p>
       <div class="drawer-log" id="drawer-log">
         <div class="drawer-log-empty">no events yet — the field is warming up.</div>
+      </div>
+      <div class="morphospace">
+        <div class="section-title">inhabitants of morphospace</div>
+        <div class="morph-row" id="morph-row"></div>
       </div>
     </div>
   </aside>
@@ -196,6 +204,14 @@
         <li><strong>entropy</strong> — average per‑mind offset from its gauge cell (0 = perfectly still on grid)</li>
         <li><strong>V</strong> — mean voltage of committed minds (whole field if none have committed yet)</li>
         <li><strong>χ</strong> — peak of the concern field (1 when quiet; higher near recent events)</li>
+        <li><strong>width</strong> — how wide the compatible rotation family still is. Narrow means the gauge has committed; wide means it is still w‑maxing.</li>
+      </ul>
+
+      <h3>How to touch it</h3>
+      <ul>
+        <li>Tap empty field to drop minds. Long‑press a committed cell to take it; the body tries to grow the remembered shape back.</li>
+        <li>The chord / arpeggio button (A) changes only how commits look: together, or smeared across ticks.</li>
+        <li>Open the narrator and tap a morphospace shape to bias new births toward that inhabitant.</li>
       </ul>
 
       <p class="attribution">
@@ -257,12 +273,14 @@
         if (name === 'pause') window.__la.togglePause();
         if (name === 'reseed') window.__la.reseed();
         if (name === 'mute') window.__la.toggleMute();
+        if (name === 'gap') window.__la.toggleTemporalGap();
       }
       document.getElementById('btn-pause').addEventListener('click', () => fireAction('pause'));
       document.getElementById('btn-reseed').addEventListener('click', () => fireAction('reseed'));
       document.getElementById('btn-mute').addEventListener('click', () => {
         if (window.__la && window.__la.toggleMute) window.__la.toggleMute();
       });
+      document.getElementById('btn-gap').addEventListener('click', () => fireAction('gap'));
       document.querySelectorAll('.tappable[data-action]').forEach((el) => {
         el.addEventListener('click', () => fireAction(el.dataset.action));
       });

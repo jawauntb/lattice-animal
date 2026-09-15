@@ -1,0 +1,33 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: trigger railway
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger Railway deploy webhook
+        env:
+          RAILWAY_WEBHOOK: ${{ secrets.RAILWAY_WEBHOOK }}
+        run: |
+          if [ -z "${RAILWAY_WEBHOOK:-}" ]; then
+            echo "RAILWAY_WEBHOOK unset — relying on Railway GitHub App source (jawauntb/lattice-animal@main)."
+            exit 0
+          fi
+          http_code="$(curl -sS -o /tmp/railway_response \
+            -w '%{http_code}' \
+            -X POST "$RAILWAY_WEBHOOK" \
+            -H 'content-type: application/json' \
+            -d "{\"ref\":\"${GITHUB_SHA}\"}")"
+          echo "railway responded: $http_code"
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "::error::railway webhook returned $http_code"
+            cat /tmp/railway_response || true
+            exit 1
+          fi
+          echo "deploy triggered for ${GITHUB_SHA}"

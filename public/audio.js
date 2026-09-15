@@ -12,16 +12,16 @@ const lastPlayTs = new Map();
 // restingV is the Levin membrane-voltage band: negative = hyperpolarized
 // (anchors, synchrony), positive = depolarized (encroaches, fissions).
 const SPECIES = [
-  { key: "lion",     rgb: "255, 168, 132", restingV:  0.70 },
-  { key: "parakeet", rgb: "132, 220, 236", restingV:  0.50 },
-  { key: "wolf",     rgb: "168, 156, 240", restingV: -0.20 },
-  { key: "elephant", rgb: "132, 176, 255", restingV: -0.55 },
-  { key: "whale",    rgb: "218, 140, 240", restingV: -0.70 },
-  { key: "frog",     rgb: "170, 232, 148", restingV:  0.10 },
-  { key: "owl",      rgb: "132, 236, 200", restingV: -0.40 },
-  { key: "dolphin",  rgb: "255, 209, 92",  restingV:  0.20 },
-  { key: "cricket",  rgb: "232, 220, 128", restingV:  0.35 },
-  { key: "sparrow",  rgb: "220, 172, 244", restingV: -0.05 },
+  { key: "lion",     rgb: "255, 168, 132", restingV:  0.70, policy: "lion" },
+  { key: "parakeet", rgb: "132, 220, 236", restingV:  0.50, policy: "parakeet" },
+  { key: "wolf",     rgb: "168, 156, 240", restingV: -0.20, policy: "wolf" },
+  { key: "elephant", rgb: "132, 176, 255", restingV: -0.55, policy: "elephant" },
+  { key: "whale",    rgb: "218, 140, 240", restingV: -0.70, policy: "whale" },
+  { key: "frog",     rgb: "170, 232, 148", restingV:  0.10, policy: "frog" },
+  { key: "owl",      rgb: "132, 236, 200", restingV: -0.40, policy: "owl" },
+  { key: "dolphin",  rgb: "255, 209, 92",  restingV:  0.20, policy: "dolphin" },
+  { key: "cricket",  rgb: "232, 220, 128", restingV:  0.35, policy: "cricket" },
+  { key: "sparrow",  rgb: "220, 172, 244", restingV: -0.05, policy: "sparrow" },
 ];
 
 export function speciesList() { return SPECIES; }
@@ -35,6 +35,92 @@ export function restingVForColor(rgb) {
   if (!rgb) return 0;
   const s = SPECIES.find(s => s.rgb === rgb);
   return s ? s.restingV : 0;
+}
+
+// ─── causal-identity policies ───────────────────────────────────────────────
+// Species differ by what they cause in their Voronoi neighbors, not just by
+// hue or voice. Each policy is a tiny, deterministic-ish nudge on V (or a
+// flag) applied once per tick from the sim loop. Kept side-effect-free
+// besides mutating the passed mind/neighbor objects — no logging, no audio.
+function clampV(v, lo = -1, hi = 1) { return v < lo ? lo : v > hi ? hi : v; }
+
+function speciesKeyForMind(mind) {
+  const color = mind.animalColor || mind.lastAnimalColor;
+  return color ? speciesForColor(color) : null;
+}
+
+function meanNeighborV(mind, neighbors, radius) {
+  let sum = 0, n = 0;
+  for (const nb of neighbors) {
+    const dx = nb.x - mind.x, dy = nb.y - mind.y;
+    if (dx * dx + dy * dy <= radius * radius) { sum += nb.V; n++; }
+  }
+  return n > 0 ? sum / n : null;
+}
+
+function pullVTowardNeighbors(mind, neighbors, radius, rate) {
+  const target = meanNeighborV(mind, neighbors, radius);
+  if (target === null) return;
+  mind.V = clampV(mind.V + (target - mind.V) * rate);
+}
+
+const POLICIES = {
+  // Depolarizes neighbors — induces fission at the bond.
+  lion(mind, neighbors) {
+    for (const nb of neighbors) nb.V = clampV(nb.V + (0.02 - nb.V) * 0.03);
+  },
+  // Spawns faster than mean, encroaching — flags itself for a spawn bias.
+  parakeet(mind) {
+    if (mind.committed && Math.random() < 0.05) mind._spawnBias = 1;
+  },
+  // Long-range V matching — forms tribes with matching V.
+  wolf(mind, neighbors, ctx) {
+    pullVTowardNeighbors(mind, ctx.minds || neighbors, 180, 0.02);
+  },
+  // Anchors neighbors' V, resists movement.
+  elephant(mind, neighbors) {
+    for (const nb of neighbors) nb.V = clampV(nb.V + (mind.V - nb.V) * 0.015);
+  },
+  // Long, slow V synchrony across a large radius.
+  whale(mind, neighbors, ctx) {
+    pullVTowardNeighbors(mind, ctx.minds || neighbors, 260, 0.008);
+  },
+  // Pulses V rhythmically — entrains neighbors' commit timing.
+  frog(mind, neighbors, ctx) {
+    mind.V = clampV(mind.V + 0.012 * Math.sin(ctx.frame * 0.08));
+  },
+  // Quietly stabilizes cilia — cohesion boost while still uncommitted.
+  owl(mind) {
+    if (!mind.committed) mind.settle += 0.02;
+  },
+  // High-frequency neighbor scanning — fastest to respond.
+  dolphin(mind) {
+    mind._fastScan = 1;
+  },
+  // Chatters V — noise floor rises near it.
+  cricket(mind) {
+    mind.V = clampV(mind.V + (Math.random() - 0.5) * 0.01);
+  },
+  // Brief bursts of coordination — migratory pulses every 90 frames.
+  sparrow(mind, neighbors, ctx) {
+    if (ctx.frame % 90 === 0) mind._coordBurst = 12;
+    if (mind._coordBurst > 0) {
+      pullVTowardNeighbors(mind, neighbors, 90, 0.08);
+      mind._coordBurst--;
+    }
+  },
+};
+
+// Applies the causal-identity policy for `mind`'s species to its Voronoi
+// neighbors. `ctx` is { minds, frame, emitChi } — only `frame` is used by
+// the current policies, but the full ctx is passed through for future ones
+// (e.g. a policy that spawns a concern-field source via emitChi).
+export function applySpeciesPolicy(mind, neighbors, ctx = {}) {
+  if (!mind || !neighbors) return;
+  const key = speciesKeyForMind(mind);
+  const s = key && SPECIES.find(s => s.key === key);
+  const policy = s && POLICIES[s.policy];
+  if (policy) policy(mind, neighbors, ctx);
 }
 
 export function init() {

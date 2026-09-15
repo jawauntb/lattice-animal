@@ -45,6 +45,16 @@ const VERSES = [
   "a concern blooms, then the lattice leans toward it",
   "voltage is concern made visible",
   "to live is to keep deciding together",
+  "the vector became a scalar",
+  "it doesn't decide, then check. the checking is the deciding",
+  "the shape is not what it looks like. it's what commits together",
+];
+
+const MORPHS = [
+  { key: "P-pentomino", cells: [[0,0],[1,0],[0,1],[0,2],[-1,2]] },
+  { key: "L-tetromino", cells: [[0,0],[0,1],[0,2],[1,2]] },
+  { key: "T-tetromino", cells: [[-1,0],[0,0],[1,0],[0,1]] },
+  { key: "S-tetromino", cells: [[0,0],[1,0],[1,1],[2,1]] },
 ];
 
 const LIFE_PULSE = [
@@ -131,6 +141,9 @@ const CFG = {
   chiStep: 16,
   chiAlpha: 0.35,
   chiDecay: 0.975,
+  valenceN: 7,
+  coneScale: 1.5,
+  holdMs: 520,
 };
 
 // ─── DOM / Canvas setup ──────────────────────────────────────────────────────
@@ -157,7 +170,7 @@ const state = {
   minds: [],
   dust: [],
   twinkles: [],
-  gauge: { cx: 0, cy: 0, theta: 0, s: CFG.spacingInit },
+  gauge: { cx: 0, cy: 0, theta: 0, s: CFG.spacingInit, width: 0.28 },
   jitter: CFG.jitterInit,
   paused: false,
   showVoronoi: true,
@@ -180,7 +193,11 @@ const state = {
   },
   // Per-animal identity: stable color assignment.
   animalColors: new Map(),  // animalId → tint string "r,g,b"
-  animalKeys: new Map(),    // signature → cached animalId so a rebounding animal keeps its color
+  animalKeys: new Map(),    // signature → { color, memory, age }
+  morphByColor: new Map(),  // color → remembered relative offsets
+  temporalGapMode: "chord",
+  ingressMorph: null,
+  bottleneckIdx: -1,
   chi: null,                // Float32Array, coarse χ grid (base 1 + event Gaussians)
   chiW: 0,
   chiH: 0,
@@ -219,6 +236,12 @@ class Mind {
     // resting V is applied once the mind inherits an animal color.
     this.restingV = 0;
     this.V = clamp(gauss(0, 0.12), -1, 1);
+    this.valence = new Float32Array(CFG.valenceN);
+    this.lightCone = CFG.spacingInit * CFG.coneScale;
+    this.vStable = 0;
+    this.prevV = this.V;
+    this.isoTicks = 0;
+    this.cancer = false;
   }
 }
 
@@ -233,6 +256,108 @@ function syncRestingV(m, rgb) {
   const color = rgb || m.animalColor || m.lastAnimalColor;
   if (!color) return;
   m.restingV = audio.restingVForColor(color);
+}
+
+function coerceAnimalRecord(v) {
+  if (!v) return null;
+  if (typeof v === "string") return { color: v, memory: null, age: 0, missAge: 0 };
+  return {
+    color: v.color,
+    memory: Array.isArray(v.memory) ? v.memory : null,
+    age: v.age || 0,
+    missAge: v.missAge || 0,
+  };
+}
+
+function captureOffsets(members, minds) {
+  let minX = Infinity, minY = Infinity;
+  for (const i of members) {
+    minX = Math.min(minX, minds[i].gx);
+    minY = Math.min(minY, minds[i].gy);
+  }
+  return members.map(i => `${minds[i].gx - minX},${minds[i].gy - minY}`).sort();
+}
+
+function memberAnchor(members, minds) {
+  let minX = Infinity, minY = Infinity;
+  for (const i of members) {
+    minX = Math.min(minX, minds[i].gx);
+    minY = Math.min(minY, minds[i].gy);
+  }
+  return { minX, minY };
+}
+
+function missingOffsets(members, minds, memory) {
+  if (!memory || !memory.length) return [];
+  const { minX, minY } = memberAnchor(members, minds);
+  const have = new Set(members.map(i => `${minds[i].gx - minX},${minds[i].gy - minY}`));
+  return memory.filter(k => !have.has(k));
+}
+
+function adjacentToMembers(gx, gy, members, minds) {
+  const set = new Set(members.map(i => `${minds[i].gx},${minds[i].gy}`));
+  for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+    if (set.has(`${gx + dx},${gy + dy}`)) return true;
+  }
+  return false;
+}
+
+function preferredSpawn(parent, occ) {
+  const minds = state.minds;
+  const members = [];
+  for (let i = 0; i < minds.length; i++) {
+    if (minds[i].animalId === parent.animalId && minds[i].committed) members.push(i);
+  }
+  const memory = state.morphByColor.get(parent.animalColor)
+    || (state.ingressMorph && MORPHS.find(m => m.key === state.ingressMorph)
+      ? MORPHS.find(m => m.key === state.ingressMorph).cells.map(([x, y]) => `${x},${y}`)
+      : null);
+  if (memory && members.length) {
+    const { minX, minY } = memberAnchor(members, minds);
+    const missing = missingOffsets(members, minds, memory).slice().sort(() => Math.random() - 0.5);
+    for (const k of missing) {
+      const [dx, dy] = k.split(",").map(Number);
+      const gx = minX + dx, gy = minY + dy;
+      if (!occ.has(`${gx},${gy}`) && adjacentToMembers(gx, gy, members, minds)) {
+        return { gx, gy, dx, dy, regen: true };
+      }
+    }
+  }
+  return pickAdjacent(parent, occ);
+}
+
+function updateValence(m, N, minds) {
+  const sFit = 1 - clamp(Math.abs(m.localS - state.gauge.s) / state.gauge.s, 0, 1);
+  let dT = m.localT - state.gauge.theta;
+  while (dT > Math.PI / 4) dT -= Math.PI / 2;
+  while (dT < -Math.PI / 4) dT += Math.PI / 2;
+  const rFit = 1 - clamp(Math.abs(dT) / (Math.PI / 4), 0, 1);
+  const tightness = clamp(N.length / 6, 0, 1);
+  const hue = m.tintIdx / Math.max(1, TINT.length - 1);
+  let coh = 0;
+  if (N.length) {
+    let c = 0;
+    for (const j of N) if (minds[j].committed) c++;
+    coh = c / N.length;
+  }
+  const stale = clamp(m.settle / CFG.commitFrames, 0, 1);
+  const r = m.lightCone || state.gauge.s * CFG.coneScale;
+  let hits = 0;
+  for (const o of minds) {
+    if (o === m) continue;
+    if (Math.hypot(o.x - m.x, o.y - m.y) < r) hits++;
+  }
+  const overlap = clamp(hits / 8, 0, 1);
+  const tgt = [sFit, rFit, tightness, hue, coh, stale, overlap];
+  const v = m.valence;
+  if (m.committed) {
+    let mean = 0;
+    for (let i = 0; i < 7; i++) mean += tgt[i];
+    mean /= 7;
+    for (let i = 0; i < 7; i++) v[i] += (mean - v[i]) * 0.22;
+  } else {
+    for (let i = 0; i < 7; i++) v[i] += (tgt[i] - v[i]) * 0.12;
+  }
 }
 
 function seed(count = CFG.seedCount) {
@@ -250,6 +375,7 @@ function seed(count = CFG.seedCount) {
   state.gauge.cy = cy;
   state.gauge.theta = (Math.random() - 0.5) * 0.35;
   state.gauge.s = CFG.spacingInit;
+  state.gauge.width = 0.28;
   state.jitter = CFG.jitterInit;
   state.frame = 0;
   state.animalCount = 0;
@@ -259,6 +385,9 @@ function seed(count = CFG.seedCount) {
   state.prevLargest = 0;
   state.animalColors.clear();
   state.animalKeys.clear();
+  state.morphByColor.clear();
+  state.ingressMorph = null;
+  state.bottleneckIdx = -1;
   state.narration.history.length = 0;
   state.narration.flags = {};
   state.narration.lastNarratedFrame = -1000;
@@ -498,7 +627,9 @@ function updateLivingPhase() {
   const spawnRoll = Math.random();
   let did = false;
   if (wanderRoll < LIFE.wanderPerFrame / 60) { did = tryWander() || did; }
-  if (spawnRoll < LIFE.spawnPerFrame / 60 && minds.length < LIFE.maxMinds) {
+  const spawnHungry = minds.some(m => m._spawnBias);
+  const spawnChance = (LIFE.spawnPerFrame / 60) * (spawnHungry ? 2.4 : 1) * (state.ingressMorph ? 1.35 : 1);
+  if (spawnRoll < spawnChance && minds.length < LIFE.maxMinds) {
     did = trySpawn() || did;
   }
   // Occasionally consider fission
@@ -571,9 +702,11 @@ function trySpawn() {
   const occ = occupiedCells();
   const parents = committed.filter(m => pickAdjacent(m, occ));
   if (parents.length === 0) return false;
-  const p = parents[Math.floor(Math.random() * parents.length)];
-  const spot = pickAdjacent(p, occ);
+  const biased = parents.filter(m => m._spawnBias);
+  const p = (biased.length ? biased : parents)[Math.floor(Math.random() * (biased.length ? biased.length : parents.length))];
+  const spot = preferredSpawn(p, occ);
   if (!spot) return false;
+  if (p._spawnBias) p._spawnBias = 0;
   const t = gaugeToWorld(spot.gx, spot.gy);
   const child = new Mind(t.x + (Math.random() - 0.5) * 6, t.y + (Math.random() - 0.5) * 6);
   child.gx = spot.gx; child.gy = spot.gy;
@@ -591,8 +724,10 @@ function trySpawn() {
   if (sp) audio.play(sp, "birth");
   emitChi(child.x, child.y, 0.85, 70);
   narrateLife({
-    short: "a new mind sat down at the edge",
-    long: "The animal asked an empty cell to host someone. The child inherited a color and a resting voltage, and now it has to earn the grid.",
+    short: spot.regen ? "the body reached for a remembered cell" : "a new mind sat down at the edge",
+    long: spot.regen
+      ? "Damage left a hole in the remembered shape. The surviving cells asked a mind to sit where the pattern still wanted a body."
+      : "The animal asked an empty cell to host someone. The child inherited a color and a resting voltage, and now it has to earn the grid.",
     kind: "life",
   });
   return true;
@@ -826,8 +961,10 @@ function step() {
     m.localT = Math.atan2(sumSin4, sumCos4) / 4;
     // Neighbor-mean direction, EMA-smoothed for a legible arrow.
     const nx = sumX / N.length, ny = sumY / N.length;
-    m.nMeanX = m.nMeanX * 0.85 + nx * 0.15;
-    m.nMeanY = m.nMeanY * 0.85 + ny * 0.15;
+    const scan = m._fastScan ? 0.35 : 0.15;
+    m.nMeanX = m.nMeanX * (1 - scan) + nx * scan;
+    m.nMeanY = m.nMeanY * (1 - scan) + ny * scan;
+    m._fastScan = 0;
     meanS += m.localS;
     meanC += Math.cos(4 * m.localT);
     meanSn += Math.sin(4 * m.localT);
@@ -847,7 +984,54 @@ function step() {
     const target = n > 0 ? sum / n : m.restingV;
     const rate = n > 0 ? CFG.vDiffuse : CFG.vRest;
     m.V = clamp(m.V + (target - m.V) * rate, -1, 1);
+    if (n > 0) {
+      const iso = Math.abs(m.V - target);
+      m.isoTicks = iso > 0.55 ? (m.isoTicks || 0) + 1 : Math.max(0, (m.isoTicks || 0) - 2);
+      if (!m.cancer && m.isoTicks > 180 && Math.random() < 0.0015) {
+        m.cancer = true;
+        m.committed = false;
+        m.settle = 0;
+        m.V = clamp(m.V + 0.28, -1, 1);
+        emitChi(m.x, m.y, 1.1, 88);
+        narrateLife({
+          short: "a mind left the informational structure",
+          long: "Its voltage drifted too far from the body for too long. Isolated, it depolarized and began to speak a language the others could not use.",
+          kind: "life",
+        });
+      }
+    }
+    if (m.cancer) {
+      m.V = clamp(m.V + 0.012, -1, 1);
+      let nearest = null, best = Infinity;
+      for (const o of minds) {
+        if (o === m || o.animalId < 0 || o.animalId === m.animalId) continue;
+        const d = Math.hypot(o.x - m.x, o.y - m.y);
+        if (d < best) { best = d; nearest = o; }
+      }
+      if (nearest) m.V = clamp(m.V + (nearest.V - m.V) * 0.04, -1, 1);
+    }
+    if (Math.abs(m.V - m.prevV) < 0.012) m.vStable = Math.min(240, (m.vStable || 0) + 1);
+    else m.vStable = Math.max(0, (m.vStable || 0) - 2);
+    m.prevV = m.V;
+    updateValence(m, N, minds);
+    const nbMinds = N.map(j => minds[j]);
+    audio.applySpeciesPolicy(m, nbMinds, { minds, frame: state.frame, emitChi });
   }
+
+  // Load-bearing bottleneck: the committed mind whose V is farthest from
+  // its neighbors would reshape the lattice most if it moved.
+  let bot = -1, botScore = 0;
+  for (let i = 0; i < minds.length; i++) {
+    const m = minds[i];
+    if (!m.committed) continue;
+    const N = neighborsCache[i] || [];
+    let sum = 0, n = 0;
+    for (const j of N) { if (minds[j].committed) { sum += minds[j].V; n++; } }
+    if (!n) continue;
+    const score = Math.abs(m.V - sum / n) * (1 + (m.animalId >= 0 ? 0.4 : 0));
+    if (score > botScore) { botScore = score; bot = i; }
+  }
+  state.bottleneckIdx = botScore > 0.08 ? bot : -1;
 
   if (count > 0) {
     // Rotation adapts freely, but spacing stays anchored to the initial size —
@@ -856,7 +1040,11 @@ function step() {
     let dT = targetT - state.gauge.theta;
     while (dT > Math.PI / 4) dT -= Math.PI / 2;
     while (dT < -Math.PI / 4) dT += Math.PI / 2;
-    state.gauge.theta += dT * CFG.gaugeLR;
+    state.gauge.width = clamp(state.gauge.width * 0.94 + Math.abs(dT) * 0.18, 0.018, 0.55);
+    const snap = state.gauge.width < 0.07
+      ? 1
+      : (0.28 + 0.72 * (1 - clamp(state.gauge.width / 0.4, 0, 1)));
+    state.gauge.theta += dT * CFG.gaugeLR * snap;
     // Very slow spacing tracking, clamped to a tight window.
     const targetS = meanS / count;
     const dS = targetS - state.gauge.s;
@@ -967,12 +1155,17 @@ function step() {
       if (m.settle >= CFG.commitFrames && !m.committed) {
         m.committed = true;
         m.commitFlash = 45;
+        m._arpDelay = 0;
         m.bornAt = state.frame;
         freshCommits.push(m);
       }
     } else if (d > CFG.releaseDist) {
       m.settle = Math.max(0, m.settle - 2);
       if (m.settle === 0) m.committed = false;
+    }
+    if (m._arpDelay > 0) {
+      m._arpDelay--;
+      if (m._arpDelay === 0) m.commitFlash = Math.round(45 * Math.min(2.5, 0.9 + 0.35 * (m.commitChord || 1)));
     }
     if (m.commitFlash > 0) m.commitFlash--;
   }
@@ -997,7 +1190,13 @@ function step() {
       }
     }
     m.commitChord = kin;
-    m.commitFlash = Math.round(45 * Math.min(2.5, 0.9 + 0.35 * kin));
+    const flash = Math.round(45 * Math.min(2.5, 0.9 + 0.35 * kin));
+    if (state.temporalGapMode === "arpeggio") {
+      m._arpDelay = freshCommits.indexOf(m) * 8;
+      m.commitFlash = m._arpDelay === 0 ? flash : 0;
+    } else {
+      m.commitFlash = flash;
+    }
     // Retroactively brighten the just-committed kin who fired in the window
     for (const o of minds) {
       if (o === m || !o.committed) continue;
@@ -1045,9 +1244,8 @@ function step() {
       // same body reforms later it keeps its color; a merged body inherits the
       // color of whichever contributor had more cells.
       const sig = members.map(i => `${minds[i].gx},${minds[i].gy}`).sort().join("|");
-      let color = state.animalKeys.get(sig);
-      if (!color) {
-        // Try to inherit from any member's previous animal color
+      let rec = coerceAnimalRecord(state.animalKeys.get(sig));
+      if (!rec) {
         const prevColors = new Map();
         for (const idx of members) {
           const prev = minds[idx].lastAnimalColor;
@@ -1055,9 +1253,31 @@ function step() {
         }
         let best = null, bestN = 0;
         for (const [c, n] of prevColors) if (n > bestN) { best = c; bestN = n; }
-        color = best || ANIMAL_HUES[(state.animalKeys.size * 7 + members[0]) % ANIMAL_HUES.length];
-        state.animalKeys.set(sig, color);
+        rec = {
+          color: best || ANIMAL_HUES[(state.animalKeys.size * 7 + members[0]) % ANIMAL_HUES.length],
+          memory: best ? (state.morphByColor.get(best) || null) : null,
+          age: 0,
+          missAge: 0,
+        };
       }
+      rec.age = (rec.age || 0) + 1;
+      if (members.length >= 3 && rec.age >= 90 && !rec.memory) {
+        rec.memory = captureOffsets(members, minds);
+        state.morphByColor.set(rec.color, rec.memory);
+      }
+      if (rec.memory) {
+        const missing = missingOffsets(members, minds, rec.memory);
+        rec.missAge = missing.length ? (rec.missAge || 0) + 1 : 0;
+        if (rec.missAge > 60 * 12) {
+          rec.memory = captureOffsets(members, minds);
+          rec.missAge = 0;
+          state.morphByColor.set(rec.color, rec.memory);
+        } else if (!missing.length) {
+          state.morphByColor.set(rec.color, rec.memory);
+        }
+      }
+      state.animalKeys.set(sig, rec);
+      const color = rec.color;
       for (const idx of members) {
         minds[idx].animalId = animalCount;
         minds[idx].animalColor = color;
@@ -1123,6 +1343,9 @@ function render() {
   rebuildChi();
   drawAmbient();
   drawChiField();
+  drawLightCones();
+  drawMorphGhosts();
+  drawAnticipation();
   drawDust();
   drawTwinkles();
   drawGhostLattice();
@@ -1132,6 +1355,7 @@ function render() {
   drawBonds();         // filaments between minds
   drawField();         // vector cilia
   drawMinds();         // nucleus + organelles
+  drawPredictiveGhosts();
 }
 
 function drawAmbient() {
@@ -1163,6 +1387,96 @@ function drawChiField() {
     ctx.beginPath();
     ctx.arc(s.cx, s.cy, s.sigma * 2.2, 0, Math.PI * 2);
     ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawLightCones() {
+  const minds = state.minds;
+  if (!minds.length) return;
+  const gs = state.gauge.s;
+  ctx.save();
+  const byAnimal = new Map();
+  for (const m of minds) {
+    const r = (m.localS || gs) * CFG.coneScale * (m.committed && m.animalId >= 0 ? 1.2 : 1);
+    m.lightCone = r;
+    if (m.animalId >= 0) {
+      if (!byAnimal.has(m.animalId)) byAnimal.set(m.animalId, []);
+      byAnimal.get(m.animalId).push(m);
+      continue;
+    }
+    if (m.committed) continue;
+    ctx.strokeStyle = "rgba(132, 176, 255, 0.06)";
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  for (const group of byAnimal.values()) {
+    let cx = 0, cy = 0, r = 0;
+    for (const m of group) { cx += m.x; cy += m.y; r = Math.max(r, m.lightCone || gs); }
+    cx /= group.length; cy /= group.length;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 1.05);
+    g.addColorStop(0, "rgba(150, 178, 226, 0.05)");
+    g.addColorStop(0.7, "rgba(132, 176, 255, 0.02)");
+    g.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 1.05, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawMorphGhosts() {
+  const minds = state.minds;
+  if (!minds.length) return;
+  const by = new Map();
+  for (let i = 0; i < minds.length; i++) {
+    const m = minds[i];
+    if (m.animalId < 0) continue;
+    if (!by.has(m.animalId)) by.set(m.animalId, { color: m.animalColor, members: [] });
+    by.get(m.animalId).members.push(i);
+  }
+  ctx.save();
+  for (const { color, members } of by.values()) {
+    const memory = state.morphByColor.get(color);
+    if (!memory || members.length < 2) continue;
+    const missing = missingOffsets(members, minds, memory);
+    if (!missing.length) continue;
+    const { minX, minY } = memberAnchor(members, minds);
+    for (const k of missing) {
+      const [dx, dy] = k.split(",").map(Number);
+      const p = gaugeToWorld(minX + dx, minY + dy);
+      ctx.strokeStyle = `rgba(${color || CREAM}, 0.22)`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4.2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawAnticipation() {
+  const minds = state.minds;
+  const occ = occupiedCells();
+  ctx.save();
+  for (const m of minds) {
+    if (!m.committed || m.animalId < 0) continue;
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const [dx, dy] of dirs) {
+      const gx = m.gx + dx, gy = m.gy + dy;
+      if (occ.has(`${gx},${gy}`)) continue;
+      const p = gaugeToWorld(gx, gy);
+      const chi = sampleChi(p.x, p.y);
+      if (chi < 1.18) continue;
+      const a = clamp((chi - 1.18) * 0.35, 0, 0.22);
+      ctx.fillStyle = `rgba(${CREAM}, ${a})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.restore();
 }
@@ -1329,6 +1643,19 @@ function drawAnimalOutline() {
         if (d2 < bestD2) { bestD2 = d2; bestJ = j; }
       }
       if (bestJ >= 0 && minds[bestJ].animalId === m.animalId) continue;
+      if (bestJ >= 0 && minds[bestJ].animalId >= 0 && minds[bestJ].animalId !== m.animalId) {
+        const dV = Math.abs((m.V ?? 0) - (minds[bestJ].V ?? 0));
+        const shimmer = 0.28 + 0.5 * dV * (0.45 + 0.55 * Math.sin(state.frame * 0.16 + midx * 0.04));
+        ctx.strokeStyle = `rgba(180, 210, 255, ${shimmer})`;
+        ctx.shadowColor = `rgba(180, 210, 255, ${0.35 + 0.4 * dV})`;
+        ctx.shadowBlur = 7 + 8 * dV;
+        ctx.lineWidth = 1.15;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        continue;
+      }
       // Perimeter edge — colored glow, cream inner
       ctx.strokeStyle = `rgba(${color}, 0.75)`;
       ctx.shadowColor = `rgba(${color}, 0.8)`;
@@ -1508,13 +1835,20 @@ function drawMinds() {
       breathScale = 1 + 0.08 * Math.sin(t * 1.4 + m.animalId * 0.7);
     }
 
-    // Cilia — soft radial hairs around each mind's cell body.
-    // Uncommitted: swaying with time and mind phase. Committed: quiet, longer, reaching outward.
-    const cilLen = m.committed ? 5.6 : 4.2;
-    const cilA = m.committed ? 0.28 : 0.18;
-    ctx.strokeStyle = `rgba(${CREAM}, ${cilA})`;
+    // Cilia — uncommitted length follows spacing-fit valence; hue follows
+    // rotation-fit (teal → coral). Committed cilia collapse to cream.
+    const v0 = m.valence ? m.valence[0] : 0.5;
+    const v1 = m.valence ? m.valence[1] : 0.5;
+    const cilLen = (m.committed ? 5.6 : 4.2) * (0.82 + 0.38 * v0);
+    const cilA = (m.committed ? 0.28 : 0.18) * (0.75 + 0.5 * (m.vStable || 0) / 80);
+    const cr = Math.round(134 + (226 - 134) * (1 - v1));
+    const cg = Math.round(186 + (140 - 186) * (1 - v1));
+    const cb = Math.round(168 + (108 - 168) * (1 - v1));
+    ctx.strokeStyle = m.committed ? `rgba(${CREAM}, ${cilA})` : `rgba(${cr}, ${cg}, ${cb}, ${cilA})`;
     ctx.lineWidth = 0.65;
     ctx.lineCap = "round";
+    ctx.shadowColor = m.committed ? "transparent" : `rgba(${cr}, ${cg}, ${cb}, 0.35)`;
+    ctx.shadowBlur = m.committed ? 0 : Math.min(7, 1.2 + (m.vStable || 0) * 0.04);
     for (let k = 0; k < m.cilia; k++) {
       const base = (k / m.cilia) * Math.PI * 2;
       const sway = m.committed ? 0 : 0.35 * Math.sin(t * 1.2 + m.phase + k);
@@ -1525,6 +1859,21 @@ function drawMinds() {
       ctx.moveTo(m.x + Math.cos(a) * r0, m.y + Math.sin(a) * r0);
       ctx.lineTo(m.x + Math.cos(a) * r1, m.y + Math.sin(a) * r1);
       ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+
+    // Seven valence threads on uncommitted minds — collapse at commit.
+    if (!m.committed && m.valence) {
+      for (let k = 0; k < 7; k++) {
+        const a = (k / 7) * Math.PI * 2 + m.phase * 0.15;
+        const len = 2.2 + 4.2 * m.valence[k];
+        ctx.strokeStyle = `rgba(${CREAM}, ${0.08 + 0.16 * m.valence[k]})`;
+        ctx.lineWidth = 0.55;
+        ctx.beginPath();
+        ctx.moveTo(m.x + Math.cos(a) * 4.4, m.y + Math.sin(a) * 4.4);
+        ctx.lineTo(m.x + Math.cos(a) * (4.4 + len), m.y + Math.sin(a) * (4.4 + len));
+        ctx.stroke();
+      }
     }
 
     // Birth flash — an expanding cream ring at the moment of committing. Chord
@@ -1563,8 +1912,9 @@ function drawMinds() {
         const alt = gaugeToWorld(m.gx + dx, m.gy + dy);
         const dAlt = Math.hypot(alt.x - m.x, alt.y - m.y);
         // weight by how close the alt is relative to the current pick (Softmax‑ish)
-        const w = Math.exp(-(dAlt - dCur) / (gs * 0.35));
-        if (w < 0.08) continue;
+        const w = Math.exp(-(dAlt - dCur) / (gs * (0.28 + state.gauge.width)));
+        const keep = 0.045 + 0.16 * clamp(state.gauge.width / 0.4, 0, 1);
+        if (w < keep) continue;
         const a = 0.12 * w * (1 - m.settle / CFG.commitFrames);
         if (a < 0.01) continue;
         ctx.fillStyle = `rgba(${CREAM}, ${a})`;
@@ -1586,11 +1936,28 @@ function drawMinds() {
       ctx.stroke();
     }
 
+    if (m.cancer) {
+      const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 5 + m.phase));
+      ctx.strokeStyle = `rgba(255, 120, 140, ${0.25 + 0.45 * pulse})`;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 7.2 * breathScale, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (i === state.bottleneckIdx) {
+      ctx.strokeStyle = `rgba(${CREAM}, ${0.18 + 0.16 * (0.5 + 0.5 * Math.sin(t * 3))})`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 9.5 + 1.4 * Math.sin(t * 3), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     // Outer soft glow
     const glowTint = isAnimal ? (m.animalColor || CREAM) : tint;
-    ctx.shadowColor = `rgba(${glowTint}, ${0.9 * brightness})`;
+    const glowA = m.cancer ? 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(t * 5)) : 0.9 * brightness;
+    ctx.shadowColor = `rgba(${glowTint}, ${glowA})`;
     ctx.shadowBlur = isAnimal ? 18 : 10;
-    ctx.fillStyle = `rgba(${glowTint}, ${0.9 * brightness})`;
+    ctx.fillStyle = `rgba(${glowTint}, ${glowA})`;
     const outerR = (isAnimal ? 3.4 : 3.0) * breathScale;
     ctx.beginPath();
     ctx.arc(m.x, m.y, outerR, 0, Math.PI * 2);
@@ -1616,6 +1983,53 @@ function drawMinds() {
         ctx.arc(ox, oy, 0.9, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+  }
+  ctx.restore();
+}
+
+function drawPredictiveGhosts() {
+  const minds = state.minds;
+  const by = new Map();
+  for (const m of minds) {
+    if (m.animalId < 0) continue;
+    if (!by.has(m.animalId)) by.set(m.animalId, []);
+    by.get(m.animalId).push(m);
+  }
+  const cents = [];
+  for (const [id, group] of by) {
+    let cx = 0, cy = 0, born = Infinity;
+    for (const m of group) { cx += m.x; cy += m.y; born = Math.min(born, m.bornAt || 0); }
+    cents.push({
+      id, group, x: cx / group.length, y: cy / group.length,
+      mature: group.length >= 8 && (state.frame - born) >= 60 * 30,
+      color: group[0].animalColor || CREAM,
+    });
+  }
+  ctx.save();
+  for (const a of cents) {
+    if (!a.mature) {
+      const nx = Math.cos(state.gauge.theta) * 6;
+      const ny = Math.sin(state.gauge.theta) * 6;
+      ctx.fillStyle = `rgba(${CREAM}, 0.06)`;
+      ctx.beginPath();
+      ctx.arc(a.x + nx, a.y + ny, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    let best = null, bd = Infinity;
+    for (const o of cents) {
+      if (o.id === a.id) continue;
+      const d = Math.hypot(o.x - a.x, o.y - a.y);
+      if (d < bd) { bd = d; best = o; }
+    }
+    if (!best) continue;
+    const ux = (best.x - a.x) / (bd || 1), uy = (best.y - a.y) / (bd || 1);
+    for (const m of a.group) {
+      ctx.fillStyle = `rgba(${a.color}, 0.07)`;
+      ctx.beginPath();
+      ctx.arc(m.x + ux * 11, m.y + uy * 11, 2.4, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
   ctx.restore();
@@ -1651,6 +2065,8 @@ function tick() {
     }
     chiEl.textContent = peak.toFixed(2);
   }
+  const wEl = el("t-width");
+  if (wEl) wEl.textContent = state.gauge.width.toFixed(2);
 }
 function setVerseText(text) {
   const v = document.getElementById("verse");
@@ -1688,6 +2104,35 @@ function toggleMute() {
   if (btn) btn.classList.toggle("active", next);
   try { localStorage.setItem("la:muted", next ? "1" : "0"); } catch {}
 }
+function toggleTemporalGap() {
+  state.temporalGapMode = state.temporalGapMode === "chord" ? "arpeggio" : "chord";
+  const btn = document.getElementById("btn-gap");
+  if (btn) {
+    btn.classList.toggle("active", state.temporalGapMode === "arpeggio");
+    btn.title = state.temporalGapMode === "arpeggio"
+      ? "Arpeggio: commits smear across ticks (A)"
+      : "Chord: commits fire together (A)";
+  }
+}
+function setIngressMorph(key) {
+  state.ingressMorph = state.ingressMorph === key ? null : key;
+  document.querySelectorAll(".morph-chip").forEach(b => {
+    b.classList.toggle("on", b.dataset.morph === state.ingressMorph);
+  });
+}
+function renderMorphospace() {
+  const row = document.getElementById("morph-row");
+  if (!row) return;
+  row.innerHTML = MORPHS.map(m =>
+    `<button type="button" class="morph-chip" data-morph="${m.key}" aria-pressed="false">${m.key}</button>`
+  ).join("");
+  row.querySelectorAll(".morph-chip").forEach(b => {
+    b.addEventListener("click", () => {
+      setIngressMorph(b.dataset.morph);
+      b.setAttribute("aria-pressed", b.classList.contains("on") ? "true" : "false");
+    });
+  });
+}
 
 window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
@@ -1696,6 +2141,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "v") { state.showVoronoi = !state.showVoronoi; }
   else if (k === "f") { state.showField = !state.showField; }
   else if (k === "g") { state.showGhost = !state.showGhost; }
+  else if (k === "a") { toggleTemporalGap(); }
 });
 
 // Expose tap handlers for the on-screen buttons.
@@ -1703,6 +2149,7 @@ window.__la = Object.assign(window.__la || {}, {
   togglePause,
   reseed: doReseed,
   toggleMute,
+  toggleTemporalGap,
   vStats() {
     const vs = state.minds.map(m => m.V);
     if (!vs.length) return { n: 0, mean: 0, min: 0, max: 0 };
@@ -1741,7 +2188,7 @@ window.addEventListener("touchstart", armAudio, true);
 
 // Paint interaction: click drops three minds; drag paints a trail of them
 // (respectful of gauge spacing so they don't pile up).
-const paint = { active: false, lastX: 0, lastY: 0, minSpacing: 22, startX: 0, startY: 0, moved: false, lastStir: 0 };
+const paint = { active: false, lastX: 0, lastY: 0, minSpacing: 22, startX: 0, startY: 0, moved: false, lastStir: 0, holdTimer: 0, deleted: false, pendingDrop: false, holdIdx: -1 };
 function stirAt(x, y, speed) {
   audio.resume();
   audio.playStir({
@@ -1770,12 +2217,36 @@ canvas.addEventListener("pointerdown", (e) => {
   paint.active = true;
   paint.moved = false;
   paint.spoken = false;
+  paint.deleted = false;
+  paint.pendingDrop = false;
+  paint.holdIdx = -1;
   paint.lastX = x; paint.lastY = y;
   paint.startX = x; paint.startY = y;
   audio.resume();
   audio.playTouch(W ? x / W : 0.5);
-  dropMindsAt(x, y, 3, 0.8);
   hideMindTooltip();
+  clearTimeout(paint.holdTimer);
+  const near = findMindNear(x, y, isCoarsePointer() ? 28 : 20);
+  if (near >= 0 && state.minds[near].committed) {
+    paint.pendingDrop = true;
+    paint.holdIdx = near;
+    paint.holdTimer = setTimeout(() => {
+      if (!paint.active || paint.moved || paint.holdIdx < 0) return;
+      const m = state.minds[paint.holdIdx];
+      if (!m || !m.committed) return;
+      m.committed = false;
+      m.dying = LIFE.dyingFrames;
+      emitChi(m.x, m.y, 1.05, 80);
+      paint.deleted = true;
+      narrateLife({
+        short: "a cell was taken. the body remembers",
+        long: "The remaining minds still hold the shape. They will try to sit someone in the missing square before they accept a new form.",
+        kind: "life",
+      });
+    }, CFG.holdMs);
+  } else {
+    dropMindsAt(x, y, 3, 0.8);
+  }
   try { canvas.setPointerCapture(e.pointerId); } catch {}
 });
 canvas.addEventListener("pointermove", (e) => {
@@ -1814,7 +2285,11 @@ canvas.addEventListener("pointerup", (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
-  if (!paint.moved) {
+  clearTimeout(paint.holdTimer);
+  if (paint.pendingDrop && !paint.deleted && !paint.moved) {
+    dropMindsAt(paint.startX, paint.startY, 3, 0.8);
+  }
+  if (!paint.moved && !paint.deleted) {
     updateMindTooltip(e.clientX, e.clientY, x, y);
     if (isCoarsePointer()) {
       clearTimeout(_tooltip.hideTimer);
@@ -1822,6 +2297,7 @@ canvas.addEventListener("pointerup", (e) => {
     }
   }
   paint.active = false;
+  paint.pendingDrop = false;
   try { canvas.releasePointerCapture(e.pointerId); } catch {}
 });
 canvas.addEventListener("pointercancel", () => { paint.active = false; });
@@ -1903,7 +2379,7 @@ function hideMindTooltip() {
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Save the field to localStorage every few seconds so the ecology survives
 // tab close, refresh, minimize-then-hours-later, or a Railway redeploy.
-const SAVE_KEY = "la:field:v2";
+const SAVE_KEY = "la:field:v3";
 const SAVE_EVERY_FRAMES = 300;   // ~5 seconds at 60fps
 let lastSaveFrame = 0;
 
@@ -1918,15 +2394,19 @@ function serializeField() {
     ba: m.bornAt || 0, sa: m.spawnedAt || 0, cf: m.commitFlash | 0, cc: m.commitChord || 1,
     a: !!m._assigned,
     V: +m.V.toFixed(3), rV: +m.restingV.toFixed(3),
+    val: m.valence ? Array.from(m.valence, x => +x.toFixed(3)) : null,
+    vs: m.vStable | 0, ca: !!m.cancer,
   }));
   return {
-    v: 2,
+    v: 3,
     ts: Date.now(),
-    gauge: { cx: state.gauge.cx, cy: state.gauge.cy, theta: state.gauge.theta, s: state.gauge.s },
+    gauge: { cx: state.gauge.cx, cy: state.gauge.cy, theta: state.gauge.theta, s: state.gauge.s, width: state.gauge.width },
     jitter: state.jitter, frame: state.frame,
     W, H,
     minds,
     animalKeys: [...state.animalKeys.entries()],
+    morphByColor: [...state.morphByColor.entries()],
+    temporalGapMode: state.temporalGapMode,
     narration: {
       history: state.narration.history.slice(0, 30),
       flags: state.narration.flags,
@@ -1947,7 +2427,7 @@ function tryRestoreField() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    if (!data || data.v !== 2) return false;
+    if (!data || (data.v !== 2 && data.v !== 3)) return false;
     // Refuse a save older than 3 days — the ecology is fresh, not archaeological
     if (Date.now() - (data.ts || 0) > 3 * 24 * 3600 * 1000) return false;
     // Rehydrate
@@ -1974,6 +2454,9 @@ function tryRestoreField() {
       m._assigned = s.a;
       m.V = typeof s.V === "number" ? clamp(s.V, -1, 1) : m.V;
       m.restingV = typeof s.rV === "number" ? clamp(s.rV, -1, 1) : m.restingV;
+      if (Array.isArray(s.val) && s.val.length === 7) m.valence = Float32Array.from(s.val);
+      m.vStable = s.vs || 0;
+      m.cancer = !!s.ca;
       if (m.animalColor || m.lastAnimalColor) syncRestingV(m);
       state.minds.push(m);
     }
@@ -1981,9 +2464,14 @@ function tryRestoreField() {
     state.gauge.cy = data.gauge.cy * sy;
     state.gauge.theta = data.gauge.theta;
     state.gauge.s = data.gauge.s;
+    state.gauge.width = typeof data.gauge.width === "number" ? data.gauge.width : 0.28;
     state.jitter = data.jitter || CFG.jitterFloor;
     state.frame = data.frame || 0;
-    state.animalKeys = new Map(data.animalKeys || []);
+    state.animalKeys = new Map((data.animalKeys || []).map(([k, v]) => [k, coerceAnimalRecord(v)]));
+    state.morphByColor = new Map(data.morphByColor || []);
+    if (data.temporalGapMode === "arpeggio" || data.temporalGapMode === "chord") {
+      state.temporalGapMode = data.temporalGapMode;
+    }
     if (data.narration) {
       state.narration.history = data.narration.history || [];
       state.narration.flags = data.narration.flags || {};
@@ -1998,6 +2486,11 @@ function tryRestoreField() {
 // ─── Boot ────────────────────────────────────────────────────────────────────
 resize();
 if (!tryRestoreField()) seed();
+renderMorphospace();
+{
+  const gap = document.getElementById("btn-gap");
+  if (gap) gap.classList.toggle("active", state.temporalGapMode === "arpeggio");
+}
 requestAnimationFrame(frame);
 
 

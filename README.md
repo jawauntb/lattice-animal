@@ -36,6 +36,12 @@ Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
   dissolve, merge, and wherever you drop minds. Nearby cells tighten
   their spacing; the shared grid itself does not collapse. Telemetry
   `χ` is the peak of that field.
+- **Light cones** — faint cool circles of influence. Committed cones
+  fuse into the animal's awareness.
+- **Valence threads** — seven tiny hairs on an uncommitted mind, one
+  per concern. They collapse toward a single length at commit.
+- **Remembered holes** — after a long‑press delete, ghost rings sit
+  where the body still wants a cell.
 - **Birth flash rings** — expanding cream rings when a mind commits. When
   multiple minds commit within the same tick, their rings amplify into a
   brighter *chord* burst (Mind‑Cannot‑Smear‑Across‑Time).
@@ -88,6 +94,10 @@ commit (soft), growth milestones (full‑voice), merger, fission, and death.
 - **Drag** — paint a trail of minds. The field plucks a quiet grain
   under your finger. Pitch follows where you are.
 - **Hover a mind** — quick blurb of what it's doing and its species
+- **Long‑press a committed cell** — take it; the body tries to grow
+  the remembered shape back
+- **A** or the three‑bar button — chord vs arpeggio (look only)
+- **Narrator → inhabitants** — bias births toward a morphospace shape
 - **?** — open the full explainer
 - **⌇** — on mobile, reveal the legend + telemetry
 
@@ -145,7 +155,11 @@ different loop depths.
 
 ## Deploy
 
-Auto‑merge to `main` triggers a Railway build via `railway up --detach`.
+Push to `main` autodeploys. Railway's GitHub App is sourced to
+`jawauntb/lattice-animal@main`. A mapvest-style webhook fallback lives
+in `.github/workflows/deploy.yml` if `RAILWAY_WEBHOOK` is set. See
+`docs/railway-autodeploy.md`.
+
 Env vars and API keys land through Doppler (`jawaun-personal` shared
 config) as they're introduced.
 

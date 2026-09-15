@@ -360,32 +360,25 @@ fields we haven't shipped yet. When you build them, add:
   `CFG.vRest` (0.008). Persist in `serializeField()` / `la:field:v2`.
   Render: bond opacity/width = f(1 − |ΔV|); teal/coral V ring;
   telemetry `#t-v`; hover tooltip; `window.__la.vStats()`.
-- `Mind.valence: Float32Array(7)` — the tapestry of valence
+- `Mind.valence: Float32Array(7)` — **shipped.** Tapestry of valence
   (Bennett). Dimensions: [spacing‑fit, rotation‑fit, neighbor
-  tightness, tint, cohesion, staleness, light‑cone overlap]. Fed by
-  the existing local proposal computations. Collapses to a single
-  scalar on commit.
-- `Mind.lightCone: number` — the mind's spatial influence radius in
-  world units. For an uncommitted mind, ≈ neighbor‑mean‑distance × 1.5.
-  For a committed mind, ≈ animal's aggregate cone / member count.
-- `Mind.shapeMemory: Set<string>` — target morphology, populated on
-  first sustained stability as `${dx},${dy}` relative offsets from
-  the animal centroid. Read by regeneration when cells are deleted.
+  tightness, tint, cohesion, staleness, light‑cone overlap]. Cilia
+  length/hue follow [0]/[1] until commit, then collapse to the mean.
+- `Mind.lightCone: number` — **shipped.** Influence radius ≈ localS ×
+  1.5; committed cones fuse at the animal centroid.
+- `state.morphByColor` / `animalKeys[sig].memory` — **shipped.**
+  Relative offsets captured after ~90 stable frames; spawn prefers
+  missing cells after a long-press delete.
 - `state.chi: Float32Array` — **shipped (iter 10).** Concern field
   χ(x, y) = 1 + Σ Aₛ exp(-r² / 2σ²), 16 px cells. Sources:
   `state.chiSources`. `rebuildChi()` each render; `sampleChi(x,y)`
   bilinear in the force loop. Local spacing = `gauge.s / χ^0.35`.
   Not persisted (1–2 s life). `drawChiField()` after ambient.
   Telemetry `#t-chi`; `window.__la.chiStats()` / `emitChi`.
-- `state.gaugeWidth: number` — Bennett w‑maxing bookkeeping. The
-  current *width* of the compatible‑theta distribution around
-  `state.gauge.theta`. When width is wide, the gauge is loosely
-  committed (w‑maxing); when narrow, tightly committed. Commit
-  thresholds sample from this width, not the mean alone.
-- `state.temporalGapMode: "chord" | "arpeggio"` — Bennett's temporal
-  gap toggle. Chord fires commits at an instant; arpeggio smears
-  each commit visually across N ticks. Simulation is unchanged; only
-  the render path branches on this.
+- `state.gauge.width: number` — **shipped.** Compatible‑theta width.
+  Snap hard only below 0.07. Telemetry `#t-width`.
+- `state.temporalGapMode: "chord" | "arpeggio"` — **shipped.** Button
+  `#btn-gap` / key A. Simulation unchanged; only commit-flash timing.
 
 Add each to the state shape table above when built. New render layers:
 

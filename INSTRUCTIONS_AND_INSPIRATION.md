@@ -214,28 +214,22 @@ lattice is a pointer to.
 The two papers together expose ten interaction patterns and features the
 demo needs but doesn't have:
 
-1. **No causal‑identity per species** (Bennett). Species differ by hue and
-   voice, not by what they *cause* in neighbors. Gap: build 10 causal
-   policies, one per species, each acting on neighbors' V and settle.
-2. **No cognitive light cone rendering** (Levin, Bennett). We don't show
-   what each mind can influence in space or time.
-3. **No target morphology memory** (Levin planarian result). `animalKeys`
-   stores color, not shape.
-4. **No regenerative response to damage** (Levin). Deleting cells
-   fragments animals; they should try to reform.
-5. **W‑maxing not yet implemented** (Bennett formal result). Gauge, commit
-   thresholds, ghost‑self collapse are all simp‑maxing.
-6. **Tapestry of valence still a scalar plan** (Bennett). Per‑mind V is
-   now live as the scalar substrate (diffusion + ΔV‑gated bonds). The
-   7‑dim valence vector on top of it is not.
-7. **No temporal gap visualization** (Bennett). Chord and arpeggio modes
-   are missing; we only have chord amplification.
-8. **No 2nd‑order‑self mechanic** (Bennett). Nothing predicts what other
-   minds will predict.
-9. **No Platonic morphospace UI** (Levin). Users can't see or steer the
-   latent space of possible animals.
-10. **No cell/organ hierarchy** (Levin scale ladder). Only mind and animal
-    exist; organelle, tissue, ecology are missing scales.
+1. **Causal‑identity per species** (Bennett) — shipped. Ten policies in
+   `audio.js` nudge neighbor V, spawn bias, scan rate, and chatter.
+2. **Cognitive light cones** (Levin, Bennett) — shipped as
+   `drawLightCones()`.
+3. **Target morphology memory** (Levin) — shipped as `{ color, memory }`
+   plus `morphByColor`.
+4. **Regenerative response to damage** (Levin) — shipped. Long‑press
+   deletes; spawn prefers remembered holes.
+5. **W‑maxing gauge** (Bennett) — shipped as `gauge.width`.
+6. **Tapestry of valence** (Bennett) — shipped as `Mind.valence[7]`.
+7. **Temporal gap** (Bennett) — shipped. Chord / arpeggio button (A).
+8. **2nd‑order‑self** (Bennett) — shipped. Mature animals ghost toward
+   a neighbor; young ones ghost their own next step.
+9. **Platonic morphospace UI** (Levin) — shipped in the narrator drawer.
+10. **Cell/organ hierarchy** (Levin scale ladder) — still open. Only
+    mind and animal exist; organelle, tissue, ecology are missing scales.
 
 Each gap is an entry in the AGENTS.md Ideas Queue with a proposed
 implementation direction.
