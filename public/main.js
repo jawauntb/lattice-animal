@@ -78,6 +78,11 @@ const CFG = {
   // gate commit on V yet. Bond opacity is the render of ΔV.
   vDiffuse: 0.02,
   vRest: 0.008,
+  // Concern field χ(x,y): 16 px coarse grid, Gaussians on life events.
+  // Local spacing = gauge.s / χ^0.35. Do not touch the frozen global s.
+  chiStep: 16,
+  chiAlpha: 0.35,
+  chiDecay: 0.975,
 };
 
 // ─── DOM / Canvas setup ──────────────────────────────────────────────────────
@@ -128,6 +133,10 @@ const state = {
   // Per-animal identity: stable color assignment.
   animalColors: new Map(),  // animalId → tint string "r,g,b"
   animalKeys: new Map(),    // signature → cached animalId so a rebounding animal keeps its color
+  chi: null,                // Float32Array, coarse χ grid (base 1 + event Gaussians)
+  chiW: 0,
+  chiH: 0,
+  chiSources: [],           // { cx, cy, amp, sigma, decay }
 };
 
 // hash → integer in [0, n)
@@ -205,7 +214,71 @@ function seed(count = CFG.seedCount) {
   state.narration.history.length = 0;
   state.narration.flags = {};
   state.narration.lastNarratedFrame = -1000;
+  state.chiSources.length = 0;
+  state.chi = null;
+  state.chiW = 0;
+  state.chiH = 0;
   renderDrawerLog();
+}
+
+function emitChi(cx, cy, amp = 1, sigma = 80) {
+  state.chiSources.push({
+    cx, cy, amp, sigma,
+    decay: CFG.chiDecay,
+  });
+}
+
+function rebuildChi() {
+  const step = CFG.chiStep;
+  const gw = Math.max(1, Math.ceil(W / step));
+  const gh = Math.max(1, Math.ceil(H / step));
+  if (!state.chi || state.chiW !== gw || state.chiH !== gh) {
+    state.chiW = gw;
+    state.chiH = gh;
+    state.chi = new Float32Array(gw * gh);
+  }
+  const grid = state.chi;
+  grid.fill(1);
+  const keep = [];
+  for (const s of state.chiSources) {
+    s.amp *= s.decay;
+    if (s.amp > 0.03) keep.push(s);
+  }
+  state.chiSources = keep;
+  for (const s of keep) {
+    const r = s.sigma * 2.8;
+    const x0 = Math.max(0, Math.floor((s.cx - r) / step));
+    const y0 = Math.max(0, Math.floor((s.cy - r) / step));
+    const x1 = Math.min(gw - 1, Math.ceil((s.cx + r) / step));
+    const y1 = Math.min(gh - 1, Math.ceil((s.cy + r) / step));
+    const inv = 1 / (2 * s.sigma * s.sigma);
+    for (let j = y0; j <= y1; j++) {
+      const wy = j * step + step * 0.5;
+      const dy = wy - s.cy;
+      for (let i = x0; i <= x1; i++) {
+        const wx = i * step + step * 0.5;
+        const dx = wx - s.cx;
+        grid[j * gw + i] += s.amp * Math.exp(-(dx * dx + dy * dy) * inv);
+      }
+    }
+  }
+}
+
+function sampleChi(x, y) {
+  const grid = state.chi;
+  if (!grid) return 1;
+  const gw = state.chiW, gh = state.chiH, step = CFG.chiStep;
+  const fx = clamp(x / step, 0, Math.max(0, gw - 1.001));
+  const fy = clamp(y / step, 0, Math.max(0, gh - 1.001));
+  const x0 = fx | 0, y0 = fy | 0;
+  const x1 = Math.min(gw - 1, x0 + 1);
+  const y1 = Math.min(gh - 1, y0 + 1);
+  const tx = fx - x0, ty = fy - y0;
+  const a = grid[y0 * gw + x0];
+  const b = grid[y0 * gw + x1];
+  const c = grid[y1 * gw + x0];
+  const d = grid[y1 * gw + x1];
+  return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
 }
 
 // ─── Cosmos: dust + twinkles ─────────────────────────────────────────────────
@@ -453,6 +526,7 @@ function trySpawn() {
   state.jitter = Math.max(state.jitter, 0.25);
   const sp = voiceOf(p);
   if (sp) audio.play(sp, "birth");
+  emitChi(child.x, child.y, 0.85, 70);
   return true;
 }
 
@@ -466,6 +540,7 @@ function tryDissolve() {
   target.dying = LIFE.dyingFrames;
   const sp = voiceOf(target);
   if (sp) audio.play(sp, "death");
+  emitChi(target.x, target.y, 0.75, 64);
   return true;
 }
 
@@ -505,6 +580,7 @@ function tryFission() {
   m.vy += Math.sin(dir) * 2.4;
   const sp = voiceOf(m);
   if (sp) audio.play(sp, "fission");
+  emitChi(m.x, m.y, 1.2, 92);
   return true;
 }
 // ─── Narrator: sniff phase-change events and narrate them.
@@ -616,6 +692,11 @@ function detectNarrations(freshCommits) {
       // Voice the merger with the surviving animal's species
       const sp = audio.speciesForColor(findLargestAnimalColor());
       if (sp) audio.play(sp, "merger");
+      let cx = 0, cy = 0, n = 0;
+      for (const m of state.minds) {
+        if (m.animalId >= 0) { cx += m.x; cy += m.y; n++; }
+      }
+      if (n) emitChi(cx / n, cy / n, 1.05, 100);
     }
   }
   state.prevAnimalCount = state.animalCount;
@@ -747,7 +828,8 @@ function step() {
       const dy = minds[j].y - m.y;
       const d = Math.hypot(dx, dy);
       if (d < 1e-3) continue;
-      const s = state.gauge.s;
+      const chi = sampleChi(m.x, m.y);
+      const s = state.gauge.s / Math.pow(Math.max(chi, 1), CFG.chiAlpha);
       const k = Math.max(1, Math.round(d / s));
       const desired = k * s;
       const err = d - desired;
@@ -957,7 +1039,9 @@ function render() {
   ctx.fillStyle = `rgba(${NIGHT.r}, ${NIGHT.g}, ${NIGHT.b}, ${CFG.trailFade})`;
   ctx.fillRect(0, 0, W, H);
 
+  rebuildChi();
   drawAmbient();
+  drawChiField();
   drawDust();
   drawTwinkles();
   drawGhostLattice();
@@ -980,6 +1064,26 @@ function drawAmbient() {
   g.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
+}
+
+function drawChiField() {
+  // Cool, faint concern blooms. Warmth stays on committed gold — this is
+  // only the spatial map of activity, not a second body.
+  const src = state.chiSources;
+  if (!src.length) return;
+  ctx.save();
+  for (const s of src) {
+    const a = clamp(s.amp, 0, 1.4);
+    const g = ctx.createRadialGradient(s.cx, s.cy, 0, s.cx, s.cy, s.sigma * 2.2);
+    g.addColorStop(0, `rgba(134, 186, 168, ${0.11 * a})`);
+    g.addColorStop(0.45, `rgba(150, 178, 226, ${0.055 * a})`);
+    g.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(s.cx, s.cy, s.sigma * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 function drawDust() {
@@ -1458,6 +1562,14 @@ function tick() {
     : 0;
   const vEl = el("t-v");
   if (vEl) vEl.textContent = (meanV >= 0 ? "+" : "") + meanV.toFixed(2);
+  const chiEl = el("t-chi");
+  if (chiEl) {
+    let peak = 1;
+    if (state.chi) {
+      for (let i = 0; i < state.chi.length; i++) if (state.chi[i] > peak) peak = state.chi[i];
+    }
+    chiEl.textContent = peak.toFixed(2);
+  }
 }
 function setVerseText(text) {
   const v = document.getElementById("verse");
@@ -1517,6 +1629,14 @@ window.__la = Object.assign(window.__la || {}, {
     for (const v of vs) { if (v < min) min = v; if (v > max) max = v; sum += v; }
     return { n: vs.length, mean: sum / vs.length, min, max };
   },
+  chiStats() {
+    let peak = 1, n = state.chiSources.length;
+    if (state.chi) {
+      for (let i = 0; i < state.chi.length; i++) if (state.chi[i] > peak) peak = state.chi[i];
+    }
+    return { sources: n, peak, w: state.chiW, h: state.chiH };
+  },
+  emitChi,
 });
 
 // Audio needs a user gesture to start on most browsers; wire it to the first
@@ -1549,6 +1669,7 @@ function dropMindsAt(x, y, count = 3, jitter = 0.8) {
     state.minds.push(new Mind(x + jx, y + jy));
   }
   state.jitter = Math.max(state.jitter, 0.9);
+  emitChi(x, y, 0.55, 56);
 }
 canvas.addEventListener("pointerdown", (e) => {
   const rect = canvas.getBoundingClientRect();

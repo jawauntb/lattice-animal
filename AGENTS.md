@@ -193,14 +193,12 @@ building decoration. Concretely:
       voltage. Persist `la:field:v2`. Commit is **not** gated on V
       yet (that wait is intentional — χ and valence land first).
 
-- [ ] **Concern field χ(x, y).** A spatial map recomputed each frame as
-      the sum of Gaussians centered on active animal‑level events
-      (fission points, dissolving centroids, merge seams, sparse
-      voids), with amplitudes decaying over 1–2 s. Cost:
-      O(minds × ~20 sources). Local target spacing becomes
-      `spacing_global / χ(x,y)^0.35`, so Voronoi cells visibly
-      compress near activity and relax back to today's uniform gauge
-      when things quiet.
+- [x] **Concern field χ(x, y).** Shipped 2026‑09‑15. 16 px
+      `Float32Array` + `chiSources` Gaussians on spawn / fission /
+      dissolve / merge / paint. Decay ~1–2 s (`CFG.chiDecay` 0.975).
+      Force loop bilinear‑samples and sets local spacing to
+      `gauge.s / χ^0.35`. Global `gauge.s` stays clamped. Cool
+      teal/blue blooms via `drawChiField()` between ambient and dust.
 
 - [ ] **Tapestry of valence on top of V** (Bennett). Each mind carries a
       *vector* of concerns — spacing‑fit, rotation‑fit, neighbor

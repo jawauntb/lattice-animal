@@ -32,6 +32,10 @@ Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
 - **V ring** — a thin teal (hyperpolarized) or coral (depolarized) ring
   on every mind. The telemetry `V` readout is the mean voltage of
   committed cells.
+- **Concern blooms** — cool teal/blue clouds at spawn, fission,
+  dissolve, merge, and wherever you drop minds. Nearby cells tighten
+  their spacing; the shared grid itself does not collapse. Telemetry
+  `χ` is the peak of that field.
 - **Birth flash rings** — expanding cream rings when a mind commits. When
   multiple minds commit within the same tick, their rings amplify into a
   brighter *chord* burst (Mind‑Cannot‑Smear‑Across‑Time).

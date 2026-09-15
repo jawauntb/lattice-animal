@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (iter 9 — per‑mind V substrate: diffusion, ΔV‑gated bonds, V ring, `la:field:v2`).
+Last updated: 2026‑09‑15 (iter 10 — concern field χ: 16 px grid, event Gaussians, local spacing warp).
 
 ---
 
@@ -162,6 +162,7 @@ Structure, top to bottom:
 14. **`render()`** — layers, back to front:
     a. Fade previous frame (`trailFade`)
     b. Ambient radial gradient (with breath)
+    b2. Concern field χ blooms (`drawChiField`)
     c. Dust
     d. Twinkles
     e. Ghost lattice (if enabled)
@@ -266,6 +267,9 @@ state = {
   narration: { current, history: [{frame, short, long, kind}], flags: {}, lastNarratedFrame },
   animalColors: Map<animalId, "r,g,b">,
   animalKeys:   Map<signature,  "r,g,b">,
+  chi: Float32Array | null,           // coarse χ grid, base 1
+  chiW, chiH,                         // cells at CFG.chiStep (16 px)
+  chiSources: [{ cx, cy, amp, sigma, decay }],
   _delaunay, _voronoi, _neighbors,    // per‑frame caches
 }
 
@@ -365,10 +369,12 @@ fields we haven't shipped yet. When you build them, add:
 - `Mind.shapeMemory: Set<string>` — target morphology, populated on
   first sustained stability as `${dx},${dy}` relative offsets from
   the animal centroid. Read by regeneration when cells are deleted.
-- `state.chi: Float32Array(W × H / gridStep²)` — the concern field
-  χ(x, y), recomputed from active event sources each frame at a
-  coarse resolution (16 px per cell is fine). Cached in `state._chi`.
-  Sources are `state.chiSources: Array<{cx, cy, sigma, amp, decay}>`.
+- `state.chi: Float32Array` — **shipped (iter 10).** Concern field
+  χ(x, y) = 1 + Σ Aₛ exp(-r² / 2σ²), 16 px cells. Sources:
+  `state.chiSources`. `rebuildChi()` each render; `sampleChi(x,y)`
+  bilinear in the force loop. Local spacing = `gauge.s / χ^0.35`.
+  Not persisted (1–2 s life). `drawChiField()` after ambient.
+  Telemetry `#t-chi`; `window.__la.chiStats()` / `emitChi`.
 - `state.gaugeWidth: number` — Bennett w‑maxing bookkeeping. The
   current *width* of the compatible‑theta distribution around
   `state.gauge.theta`. When width is wide, the gauge is loosely

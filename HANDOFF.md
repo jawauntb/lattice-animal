@@ -59,6 +59,10 @@ regress any of these.
 - Bond opacity + width = f(1 − |ΔV|) — Levin voltage‑gated
   gap junctions. Matched‑V bonds stay open; large drops dim shut.
 - Teal / coral V ring on every mind (sign × magnitude)
+- Concern field χ(x, y): 16 px coarse grid, Gaussians on spawn /
+  fission / dissolve / merge / paint. Local neighbor spacing
+  becomes `gauge.s / χ^0.35`. Global `gauge.s` stays clamped.
+  Cool teal/blue blooms; telemetry `χ` is the peak.
 
 **Persistence**
 - `localStorage` snapshot every 5 s, on tab hide, and on
@@ -188,7 +192,7 @@ back to one of those three, you're decorating.
 **Tier 0: substrate.** Build these first — everything else lands on
 them.
 - Per‑mind V (scalar; Levin voltage / Bennett concern) — **shipped**
-- Concern field χ(x,y) as sum of Gaussians on active events
+- Concern field χ(x,y) as sum of Gaussians on active events — **shipped**
 - Tapestry of valence (7‑dim vector on top of V; collapses at commit)
 - W‑maxing gauge (compatible‑theta distribution, not single mean)
 - Cognitive light cones (per‑mind + per‑animal radius rendering)
@@ -228,11 +232,9 @@ mergeable commit):
 
 1. **Add `Mind.V`** — **shipped (iter 9).** Gaussian init; 0.02
    diffusion; ΔV‑gated bonds; V ring; `la:field:v2`.
-2. **Add `state.chi`** — Float32Array at coarse resolution
-   (16 px cells). Source list `state.chiSources` populated at
-   fission/dissolve/merge/spawn with amplitude and decay. Bilinear
-   sample in the per‑mind force loop; multiply local target spacing
-   by `1/χ^0.35`. Ship + verify + commit + push.
+2. **Add `state.chi`** — **shipped (iter 10).** 16 px grid,
+   event Gaussians, local spacing warp, cool blooms. Global `s`
+   untouched.
 3. **Add `Mind.valence` 7‑dim vector** — populate from existing
    proposals; render one dimension as a distinct visual channel
    (start with rotation‑fit as cilia hue). Ship + verify + commit +
@@ -327,9 +329,9 @@ think they exist yet on production:
 - **Space‑warp curvature under χ** — Tier 4. Not started.
 - **Sexual dimorphism** — Tier 2, blocked on fly‑connectome.
 - **PreText / interactive moving text** — Tier 3.5. Not started.
-- **Remaining Tier 0 substrate** — V is live. χ, valence, w‑maxing,
-  light cones, and morphology memory are not. Next: `state.chi`.
-  (`SAVE_KEY` is currently `"la:field:v2"`.)
+- **Remaining Tier 0 substrate** — V and χ are live. Valence,
+  w‑maxing, light cones, and morphology memory are not. Next:
+  `Mind.valence`. (`SAVE_KEY` is currently `"la:field:v2"`.)
 
 ## Contact
 

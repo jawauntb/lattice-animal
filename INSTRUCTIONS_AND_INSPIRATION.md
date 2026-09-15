@@ -376,9 +376,9 @@ Order Self v2, Future Control Moves Memory, Reward Deformation):**
 **Cluster 3 (Geometry of Concern; Concern Deforms a Learned Metric;
 Weakness Predicts Topology; Reward Deformation):**
 - **Concern field χ(x, y) as a spatial map of active |ΔV|.**
-  `χ(x, y) = 1 + Σₛ Aₛ · exp(-‖(x, y) − cₛ‖² / 2σₛ²)` summed over active
-  animal‑level events (fission points, dissolving centroids, merge
-  seams, sparse voids). Aₛ decays over 1–2 s.
+  **Shipped.** `χ(x, y) = 1 + Σₛ Aₛ · exp(-‖(x, y) − cₛ‖² / 2σₛ²)`
+  summed over spawn / fission / dissolve / merge / paint. Aₛ decays
+  over 1–2 s. Local spacing = `gauge.s / χ^0.35`.
 - **Local target spacing** becomes `spacing_global / χ(x, y)^α` with
   α ≈ 0.3–0.4 — the measured effective‑dimension exponent from the
   reward‑deformation paper.
