@@ -26,6 +26,15 @@ const ANIMAL_HUES = [
 ];
 const CREAM = "242, 238, 230";
 const NIGHT = { r: 6, g: 8, b: 16 };
+const VALENCE_TINTS = [
+  "134, 186, 168",
+  "150, 178, 226",
+  "132, 220, 236",
+  "231, 172, 82",
+  "170, 232, 148",
+  "226, 140, 108",
+  "168, 156, 240",
+];
 
 // ─── Verses ──────────────────────────────────────────────────────────────────
 // Bookends frame the demo's own philosophy; the middle rotates ambient lines.
@@ -198,6 +207,8 @@ const state = {
   temporalGapMode: "chord",
   ingressMorph: null,
   bottleneckIdx: -1,
+  regenUrgent: 0,
+  inhabited: [],
   chi: null,                // Float32Array, coarse χ grid (base 1 + event Gaussians)
   chiW: 0,
   chiH: 0,
@@ -242,6 +253,8 @@ class Mind {
     this.prevV = this.V;
     this.isoTicks = 0;
     this.cancer = false;
+    this.cancerAge = 0;
+    this.collapse = 0;
   }
 }
 
@@ -300,6 +313,54 @@ function adjacentToMembers(gx, gy, members, minds) {
     if (set.has(`${gx + dx},${gy + dy}`)) return true;
   }
   return false;
+}
+
+function rememberAnimal(m) {
+  const minds = state.minds;
+  const members = [];
+  for (let i = 0; i < minds.length; i++) {
+    if (minds[i].animalId === m.animalId && minds[i].committed) members.push(i);
+  }
+  if (members.length < 2 || !m.animalColor) return;
+  const mem = captureOffsets(members, minds);
+  state.morphByColor.set(m.animalColor, mem);
+  state.regenUrgent = 240;
+}
+
+function rotateCells(cells, k) {
+  let out = cells.map(([x, y]) => [x, y]);
+  for (let i = 0; i < k; i++) out = out.map(([x, y]) => [-y, x]);
+  let minX = Infinity, minY = Infinity;
+  for (const [x, y] of out) { minX = Math.min(minX, x); minY = Math.min(minY, y); }
+  return out.map(([x, y]) => `${x - minX},${y - minY}`).sort().join("|");
+}
+
+function morphKeyFromOffsets(offsets) {
+  const sig = offsets.slice().sort().join("|");
+  for (const morph of MORPHS) {
+    for (let k = 0; k < 4; k++) {
+      if (rotateCells(morph.cells, k) === sig) return morph.key;
+    }
+  }
+  return null;
+}
+
+function currentInhabitants() {
+  const found = new Set();
+  const by = new Map();
+  const minds = state.minds;
+  for (let i = 0; i < minds.length; i++) {
+    const m = minds[i];
+    if (m.animalId < 0) continue;
+    if (!by.has(m.animalId)) by.set(m.animalId, []);
+    by.get(m.animalId).push(i);
+  }
+  for (const members of by.values()) {
+    const off = captureOffsets(members, minds);
+    const key = morphKeyFromOffsets(off);
+    if (key) found.add(key);
+  }
+  return [...found];
 }
 
 function preferredSpawn(parent, occ) {
@@ -388,6 +449,8 @@ function seed(count = CFG.seedCount) {
   state.morphByColor.clear();
   state.ingressMorph = null;
   state.bottleneckIdx = -1;
+  state.regenUrgent = 0;
+  state.inhabited = [];
   state.narration.history.length = 0;
   state.narration.flags = {};
   state.narration.lastNarratedFrame = -1000;
@@ -627,8 +690,12 @@ function updateLivingPhase() {
   const spawnRoll = Math.random();
   let did = false;
   if (wanderRoll < LIFE.wanderPerFrame / 60) { did = tryWander() || did; }
+  if (state.regenUrgent > 0) state.regenUrgent--;
   const spawnHungry = minds.some(m => m._spawnBias);
-  const spawnChance = (LIFE.spawnPerFrame / 60) * (spawnHungry ? 2.4 : 1) * (state.ingressMorph ? 1.35 : 1);
+  const spawnChance = (LIFE.spawnPerFrame / 60)
+    * (spawnHungry ? 2.4 : 1)
+    * (state.ingressMorph ? 1.35 : 1)
+    * (state.regenUrgent > 0 ? 5 : 1);
   if (spawnRoll < spawnChance && minds.length < LIFE.maxMinds) {
     did = trySpawn() || did;
   }
@@ -824,11 +891,20 @@ function detectNarrations(freshCommits) {
   }
 
   // First commit — one mind stopped moving
+  if (!n.flags.checking && state.minds.some(m => !m.committed && m.settle > 8)) {
+    n.flags.checking = true;
+    narrate({
+      short: "it doesn't decide, then check. the checking is the deciding",
+      long: "A mind is staying near a cell and counting. That count is the decision. There is no later moment where it approves what it already did.",
+      kind: "note",
+    });
+  }
+
   if (!n.flags.first_commit && committed >= 1) {
     n.flags.first_commit = true;
     narrate({
-      short: "the first mind found its spot",
-      long: "One mind has stopped drifting. It's locked to a cell of the shared grid — the first vote for what the answer is. From here the others will start finding their own cells around it.",
+      short: "the vector became a scalar",
+      long: "Seven concerns were still open. Then the mind stayed, and they folded into one fact: this cell.",
       kind: "note",
     });
   }
@@ -852,7 +928,7 @@ function detectNarrations(freshCommits) {
   if (!n.flags.first_animal && state.animalCount >= 1) {
     n.flags.first_animal = true;
     narrate({
-      short: "a lattice animal is born",
+      short: "the shape is not what it looks like. it's what commits together",
       long: "Two committed minds are now sitting on 4-adjacent cells of the shared grid. Together they count as an animal — the smallest possible body. Watch the warm filament that just appeared between them: that's the bond.",
       kind: "animal",
     });
@@ -987,7 +1063,7 @@ function step() {
     if (n > 0) {
       const iso = Math.abs(m.V - target);
       m.isoTicks = iso > 0.55 ? (m.isoTicks || 0) + 1 : Math.max(0, (m.isoTicks || 0) - 2);
-      if (!m.cancer && m.isoTicks > 180 && Math.random() < 0.0015) {
+      if (!m.cancer && m.isoTicks > 90 && Math.random() < 0.008) {
         m.cancer = true;
         m.committed = false;
         m.settle = 0;
@@ -1001,6 +1077,7 @@ function step() {
       }
     }
     if (m.cancer) {
+      m.cancerAge = (m.cancerAge || 0) + 1;
       m.V = clamp(m.V + 0.012, -1, 1);
       let nearest = null, best = Infinity;
       for (const o of minds) {
@@ -1156,6 +1233,7 @@ function step() {
         m.committed = true;
         m.commitFlash = 45;
         m._arpDelay = 0;
+        m.collapse = 36;
         m.bornAt = state.frame;
         freshCommits.push(m);
       }
@@ -1168,6 +1246,7 @@ function step() {
       if (m._arpDelay === 0) m.commitFlash = Math.round(45 * Math.min(2.5, 0.9 + 0.35 * (m.commitChord || 1)));
     }
     if (m.commitFlash > 0) m.commitFlash--;
+    if (m.collapse > 0) m.collapse--;
   }
   // Voice each fresh commit softly — its animal's species (if it has one) speaks.
   for (const m of freshCommits) {
@@ -1192,8 +1271,8 @@ function step() {
     m.commitChord = kin;
     const flash = Math.round(45 * Math.min(2.5, 0.9 + 0.35 * kin));
     if (state.temporalGapMode === "arpeggio") {
-      m._arpDelay = freshCommits.indexOf(m) * 8;
-      m.commitFlash = m._arpDelay === 0 ? flash : 0;
+      m._arpDelay = 8 + freshCommits.indexOf(m) * 14;
+      m.commitFlash = 0;
     } else {
       m.commitFlash = flash;
     }
@@ -1261,7 +1340,7 @@ function step() {
         };
       }
       rec.age = (rec.age || 0) + 1;
-      if (members.length >= 3 && rec.age >= 90 && !rec.memory) {
+      if (members.length >= 2 && rec.age >= 24 && !rec.memory) {
         rec.memory = captureOffsets(members, minds);
         state.morphByColor.set(rec.color, rec.memory);
       }
@@ -1344,6 +1423,7 @@ function render() {
   drawAmbient();
   drawChiField();
   drawLightCones();
+  drawWmaxFan();
   drawMorphGhosts();
   drawAnticipation();
   drawDust();
@@ -1398,32 +1478,81 @@ function drawLightCones() {
   ctx.save();
   const byAnimal = new Map();
   for (const m of minds) {
-    const r = (m.localS || gs) * CFG.coneScale * (m.committed && m.animalId >= 0 ? 1.2 : 1);
+    const r = (m.localS || gs) * CFG.coneScale * (m.committed && m.animalId >= 0 ? 1.15 : 1);
     m.lightCone = r;
+    if (!(m.committed && m.animalId >= 0)) {
+      ctx.strokeStyle = "rgba(132, 176, 255, 0.24)";
+      ctx.lineWidth = 1.15;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     if (m.animalId >= 0) {
       if (!byAnimal.has(m.animalId)) byAnimal.set(m.animalId, []);
       byAnimal.get(m.animalId).push(m);
-      continue;
     }
-    if (m.committed) continue;
-    ctx.strokeStyle = "rgba(132, 176, 255, 0.06)";
-    ctx.lineWidth = 0.7;
-    ctx.beginPath();
-    ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
-    ctx.stroke();
+  }
+  const neigh = state._neighbors;
+  if (neigh) {
+    for (let i = 0; i < minds.length; i++) {
+      const m = minds[i];
+      for (const j of neigh[i] || []) {
+        if (j <= i) continue;
+        const o = minds[j];
+        const d = Math.hypot(m.x - o.x, m.y - o.y);
+        if (d < (m.lightCone + o.lightCone) * 0.55) {
+          ctx.fillStyle = "rgba(180, 210, 255, 0.10)";
+          ctx.beginPath();
+          ctx.arc((m.x + o.x) * 0.5, (m.y + o.y) * 0.5, 10, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
   }
   for (const group of byAnimal.values()) {
+    if (group.length < 2) continue;
     let cx = 0, cy = 0, r = 0;
     for (const m of group) { cx += m.x; cy += m.y; r = Math.max(r, m.lightCone || gs); }
     cx /= group.length; cy /= group.length;
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 1.05);
-    g.addColorStop(0, "rgba(150, 178, 226, 0.05)");
-    g.addColorStop(0.7, "rgba(132, 176, 255, 0.02)");
-    g.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.strokeStyle = "rgba(160, 200, 255, 0.32)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 7]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const g = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 0.85);
+    g.addColorStop(0, "rgba(150, 178, 226, 0.04)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 1.05, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
     ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawWmaxFan() {
+  const g = state.gauge;
+  const w = g.width || 0.28;
+  const wide = clamp(w / 0.4, 0, 1);
+  if (wide < 0.08) return;
+  ctx.save();
+  ctx.translate(g.cx, g.cy);
+  ctx.rotate(g.theta);
+  ctx.strokeStyle = `rgba(${CREAM}, ${0.08 + 0.22 * wide})`;
+  ctx.lineWidth = 1.1;
+  const reach = g.s * 3.2;
+  for (const sign of [-1, 1]) {
+    const a = sign * w;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 12, Math.sin(a) * 12);
+    ctx.lineTo(Math.cos(a) * reach, Math.sin(a) * reach);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a + Math.PI / 2) * 12, Math.sin(a + Math.PI / 2) * 12);
+    ctx.lineTo(Math.cos(a + Math.PI / 2) * reach, Math.sin(a + Math.PI / 2) * reach);
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -1438,43 +1567,65 @@ function drawMorphGhosts() {
     if (!by.has(m.animalId)) by.set(m.animalId, { color: m.animalColor, members: [] });
     by.get(m.animalId).members.push(i);
   }
+  const pulse = 0.45 + 0.35 * (0.5 + 0.5 * Math.sin(state.frame * 0.12));
   ctx.save();
   for (const { color, members } of by.values()) {
     const memory = state.morphByColor.get(color);
-    if (!memory || members.length < 2) continue;
+    if (!memory || members.length < 1) continue;
     const missing = missingOffsets(members, minds, memory);
     if (!missing.length) continue;
     const { minX, minY } = memberAnchor(members, minds);
     for (const k of missing) {
       const [dx, dy] = k.split(",").map(Number);
       const p = gaugeToWorld(minX + dx, minY + dy);
-      ctx.strokeStyle = `rgba(${color || CREAM}, 0.22)`;
-      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = `rgba(${color || CREAM}, ${pulse})`;
+      ctx.shadowColor = `rgba(${color || CREAM}, 0.55)`;
+      ctx.shadowBlur = 10;
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([3, 3]);
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 4.2, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(${CREAM}, 0.16)`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
+  ctx.shadowBlur = 0;
   ctx.restore();
 }
 
 function drawAnticipation() {
   const minds = state.minds;
   const occ = occupiedCells();
+  const seen = new Set();
   ctx.save();
   for (const m of minds) {
     if (!m.committed || m.animalId < 0) continue;
     const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
     for (const [dx, dy] of dirs) {
       const gx = m.gx + dx, gy = m.gy + dy;
-      if (occ.has(`${gx},${gy}`)) continue;
+      const key = `${gx},${gy}`;
+      if (occ.has(key) || seen.has(key)) continue;
       const p = gaugeToWorld(gx, gy);
       const chi = sampleChi(p.x, p.y);
-      if (chi < 1.18) continue;
-      const a = clamp((chi - 1.18) * 0.35, 0, 0.22);
-      ctx.fillStyle = `rgba(${CREAM}, ${a})`;
+      const mem = state.morphByColor.get(m.animalColor);
+      const members = [];
+      for (let i = 0; i < minds.length; i++) if (minds[i].animalId === m.animalId) members.push(i);
+      const missing = mem ? missingOffsets(members, minds, mem) : [];
+      const wanted = missing.includes(`${gx - memberAnchor(members, minds).minX},${gy - memberAnchor(members, minds).minY}`);
+      const mount = wanted || chi > 1.06 || state.regenUrgent > 0 || state.ingressMorph;
+      if (!mount) continue;
+      seen.add(key);
+      const a = clamp(0.16 + (chi - 1) * 0.22 + (wanted ? 0.22 : 0), 0, 0.48);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 16);
+      g.addColorStop(0, `rgba(${CREAM}, ${a})`);
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 3.2, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -1645,11 +1796,11 @@ function drawAnimalOutline() {
       if (bestJ >= 0 && minds[bestJ].animalId === m.animalId) continue;
       if (bestJ >= 0 && minds[bestJ].animalId >= 0 && minds[bestJ].animalId !== m.animalId) {
         const dV = Math.abs((m.V ?? 0) - (minds[bestJ].V ?? 0));
-        const shimmer = 0.28 + 0.5 * dV * (0.45 + 0.55 * Math.sin(state.frame * 0.16 + midx * 0.04));
-        ctx.strokeStyle = `rgba(180, 210, 255, ${shimmer})`;
-        ctx.shadowColor = `rgba(180, 210, 255, ${0.35 + 0.4 * dV})`;
-        ctx.shadowBlur = 7 + 8 * dV;
-        ctx.lineWidth = 1.15;
+        const shimmer = 0.55 + 0.4 * (0.5 + 0.5 * Math.sin(state.frame * 0.22 + midx * 0.05));
+        ctx.strokeStyle = `rgba(160, 220, 255, ${shimmer})`;
+        ctx.shadowColor = `rgba(160, 220, 255, ${0.55 + 0.4 * dV})`;
+        ctx.shadowBlur = 12 + 10 * dV;
+        ctx.lineWidth = 2.1;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
@@ -1836,19 +1987,20 @@ function drawMinds() {
     }
 
     // Cilia — uncommitted length follows spacing-fit valence; hue follows
-    // rotation-fit (teal → coral). Committed cilia collapse to cream.
+    // rotation-fit (teal → coral). Stability brightens them over time.
     const v0 = m.valence ? m.valence[0] : 0.5;
     const v1 = m.valence ? m.valence[1] : 0.5;
+    const stable = clamp((m.vStable || 0) / 60, 0, 1);
     const cilLen = (m.committed ? 5.6 : 4.2) * (0.82 + 0.38 * v0);
-    const cilA = (m.committed ? 0.28 : 0.18) * (0.75 + 0.5 * (m.vStable || 0) / 80);
+    const cilA = (m.committed ? 0.32 : 0.22) * (0.7 + 0.9 * stable);
     const cr = Math.round(134 + (226 - 134) * (1 - v1));
     const cg = Math.round(186 + (140 - 186) * (1 - v1));
     const cb = Math.round(168 + (108 - 168) * (1 - v1));
     ctx.strokeStyle = m.committed ? `rgba(${CREAM}, ${cilA})` : `rgba(${cr}, ${cg}, ${cb}, ${cilA})`;
-    ctx.lineWidth = 0.65;
+    ctx.lineWidth = 0.85;
     ctx.lineCap = "round";
-    ctx.shadowColor = m.committed ? "transparent" : `rgba(${cr}, ${cg}, ${cb}, 0.35)`;
-    ctx.shadowBlur = m.committed ? 0 : Math.min(7, 1.2 + (m.vStable || 0) * 0.04);
+    ctx.shadowColor = `rgba(${m.committed ? CREAM : `${cr}, ${cg}, ${cb}`}, ${0.25 + 0.55 * stable})`;
+    ctx.shadowBlur = 2 + 12 * stable;
     for (let k = 0; k < m.cilia; k++) {
       const base = (k / m.cilia) * Math.PI * 2;
       const sway = m.committed ? 0 : 0.35 * Math.sin(t * 1.2 + m.phase + k);
@@ -1862,22 +2014,37 @@ function drawMinds() {
     }
     ctx.shadowBlur = 0;
 
-    // Seven valence threads on uncommitted minds — collapse at commit.
-    if (!m.committed && m.valence) {
+    // Seven valence threads. Open on the uncommitted mind; collapse to one
+    // cream spoke in the frames after commit.
+    if (m.valence && (!m.committed || m.collapse > 0)) {
+      const fold = m.committed ? 1 - (m.collapse / 36) : 0;
       for (let k = 0; k < 7; k++) {
-        const a = (k / 7) * Math.PI * 2 + m.phase * 0.15;
-        const len = 2.2 + 4.2 * m.valence[k];
-        ctx.strokeStyle = `rgba(${CREAM}, ${0.08 + 0.16 * m.valence[k]})`;
-        ctx.lineWidth = 0.55;
+        const a0 = (k / 7) * Math.PI * 2 + m.phase * 0.15;
+        const a = a0 * (1 - fold);
+        const len = (2.8 + 7 * m.valence[k]) * (1 - 0.55 * fold);
+        const tint = fold > 0.65 ? CREAM : VALENCE_TINTS[k];
+        ctx.strokeStyle = `rgba(${tint}, ${0.42 + 0.40 * m.valence[k]})`;
+        ctx.lineWidth = 1.15;
         ctx.beginPath();
-        ctx.moveTo(m.x + Math.cos(a) * 4.4, m.y + Math.sin(a) * 4.4);
-        ctx.lineTo(m.x + Math.cos(a) * (4.4 + len), m.y + Math.sin(a) * (4.4 + len));
+        ctx.moveTo(m.x + Math.cos(a) * 5, m.y + Math.sin(a) * 5);
+        ctx.lineTo(m.x + Math.cos(a) * (5 + len), m.y + Math.sin(a) * (5 + len));
         ctx.stroke();
       }
     }
 
     // Birth flash — an expanding cream ring at the moment of committing. Chord
     // events (kin >= 2) fire brighter, wider, longer.
+    if (m._arpDelay > 0) {
+      const wait = 1 - m._arpDelay / 36;
+      ctx.strokeStyle = `rgba(${CREAM}, ${0.18 + 0.35 * wait})`;
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 6 + 10 * wait, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
     if (m.commitFlash > 0) {
       const chord = m.commitChord || 1;
       const life = 45 * Math.min(2.5, 0.9 + 0.35 * chord);
@@ -1915,11 +2082,11 @@ function drawMinds() {
         const w = Math.exp(-(dAlt - dCur) / (gs * (0.28 + state.gauge.width)));
         const keep = 0.045 + 0.16 * clamp(state.gauge.width / 0.4, 0, 1);
         if (w < keep) continue;
-        const a = 0.12 * w * (1 - m.settle / CFG.commitFrames);
-        if (a < 0.01) continue;
+        const a = (0.22 + 0.28 * clamp(state.gauge.width / 0.35, 0, 1)) * w * (1 - m.settle / CFG.commitFrames);
+        if (a < 0.04) continue;
         ctx.fillStyle = `rgba(${CREAM}, ${a})`;
         ctx.beginPath();
-        ctx.arc(alt.x, alt.y, 1.4, 0, Math.PI * 2);
+        ctx.arc(alt.x, alt.y, 2.6, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -1937,19 +2104,40 @@ function drawMinds() {
     }
 
     if (m.cancer) {
-      const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 5 + m.phase));
-      ctx.strokeStyle = `rgba(255, 120, 140, ${0.25 + 0.45 * pulse})`;
-      ctx.lineWidth = 1.4;
+      const age = m.cancerAge || 0;
+      const dark = age < 40;
+      const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 6 + m.phase));
+      ctx.strokeStyle = dark
+        ? `rgba(20, 16, 24, ${0.55 + 0.3 * pulse})`
+        : `rgba(255, 90, 120, ${0.45 + 0.5 * pulse})`;
+      ctx.lineWidth = dark ? 3.2 : 2.2;
       ctx.beginPath();
-      ctx.arc(m.x, m.y, 7.2 * breathScale, 0, Math.PI * 2);
+      ctx.arc(m.x, m.y, (dark ? 5 : 8.5) * breathScale, 0, Math.PI * 2);
       ctx.stroke();
     }
     if (i === state.bottleneckIdx) {
-      ctx.strokeStyle = `rgba(${CREAM}, ${0.18 + 0.16 * (0.5 + 0.5 * Math.sin(t * 3))})`;
-      ctx.lineWidth = 0.8;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+      ctx.strokeStyle = `rgba(${CREAM}, ${0.35 + 0.40 * pulse})`;
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
-      ctx.arc(m.x, m.y, 9.5 + 1.4 * Math.sin(t * 3), 0, Math.PI * 2);
+      ctx.arc(m.x, m.y, 11 + 3 * pulse, 0, Math.PI * 2);
       ctx.stroke();
+    }
+    const spKey = audio.speciesForColor(m.animalColor || m.lastAnimalColor);
+    if (spKey && m.committed) {
+      const mark = {
+        lion: "226, 140, 108", parakeet: "132, 220, 236", wolf: "168, 156, 240",
+        elephant: "132, 176, 255", whale: "218, 140, 240", frog: "170, 232, 148",
+        owl: "132, 236, 200", dolphin: "255, 209, 92", cricket: "232, 220, 128",
+        sparrow: "220, 172, 244",
+      }[spKey];
+      if (mark) {
+        ctx.strokeStyle = `rgba(${mark}, 0.7)`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 8.2 * breathScale, m.phase, m.phase + 1.1);
+        ctx.stroke();
+      }
     }
 
     // Outer soft glow
@@ -2002,7 +2190,7 @@ function drawPredictiveGhosts() {
     for (const m of group) { cx += m.x; cy += m.y; born = Math.min(born, m.bornAt || 0); }
     cents.push({
       id, group, x: cx / group.length, y: cy / group.length,
-      mature: group.length >= 8 && (state.frame - born) >= 60 * 30,
+      mature: group.length >= 5 && (state.frame - born) >= 60 * 8,
       color: group[0].animalColor || CREAM,
     });
   }
@@ -2011,10 +2199,13 @@ function drawPredictiveGhosts() {
     if (!a.mature) {
       const nx = Math.cos(state.gauge.theta) * 6;
       const ny = Math.sin(state.gauge.theta) * 6;
-      ctx.fillStyle = `rgba(${CREAM}, 0.06)`;
+      ctx.strokeStyle = `rgba(${CREAM}, 0.28)`;
+      ctx.lineWidth = 1.1;
+      ctx.setLineDash([2, 3]);
       ctx.beginPath();
-      ctx.arc(a.x + nx, a.y + ny, 3.2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(a.x + nx, a.y + ny, 5.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
       continue;
     }
     let best = null, bd = Infinity;
@@ -2026,10 +2217,13 @@ function drawPredictiveGhosts() {
     if (!best) continue;
     const ux = (best.x - a.x) / (bd || 1), uy = (best.y - a.y) / (bd || 1);
     for (const m of a.group) {
-      ctx.fillStyle = `rgba(${a.color}, 0.07)`;
+      ctx.strokeStyle = `rgba(${a.color}, 0.32)`;
+      ctx.lineWidth = 1.15;
+      ctx.setLineDash([2, 3]);
       ctx.beginPath();
-      ctx.arc(m.x + ux * 11, m.y + uy * 11, 2.4, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(m.x + ux * 14, m.y + uy * 14, 4.2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
   }
   ctx.restore();
@@ -2067,6 +2261,7 @@ function tick() {
   }
   const wEl = el("t-width");
   if (wEl) wEl.textContent = state.gauge.width.toFixed(2);
+  if (state.frame % 20 === 0) updateMorphospace();
 }
 function setVerseText(text) {
   const v = document.getElementById("verse");
@@ -2132,6 +2327,16 @@ function renderMorphospace() {
       b.setAttribute("aria-pressed", b.classList.contains("on") ? "true" : "false");
     });
   });
+  updateMorphospace();
+}
+
+function updateMorphospace() {
+  const inhab = currentInhabitants();
+  state.inhabited = inhab;
+  document.querySelectorAll(".morph-chip").forEach(b => {
+    b.classList.toggle("in", inhab.includes(b.dataset.morph));
+    b.classList.toggle("on", b.dataset.morph === state.ingressMorph);
+  });
 }
 
 window.addEventListener("keydown", (e) => {
@@ -2165,6 +2370,15 @@ window.__la = Object.assign(window.__la || {}, {
     return { sources: n, peak, w: state.chiW, h: state.chiH };
   },
   emitChi,
+  rememberAnimal,
+  infect(i) {
+    const m = state.minds[i];
+    if (!m) return false;
+    m.cancer = true;
+    m.cancerAge = 0;
+    m.committed = false;
+    return true;
+  },
 });
 
 // Audio needs a user gesture to start on most browsers; wire it to the first
@@ -2234,9 +2448,11 @@ canvas.addEventListener("pointerdown", (e) => {
       if (!paint.active || paint.moved || paint.holdIdx < 0) return;
       const m = state.minds[paint.holdIdx];
       if (!m || !m.committed) return;
+      rememberAnimal(m);
       m.committed = false;
       m.dying = LIFE.dyingFrames;
       emitChi(m.x, m.y, 1.05, 80);
+      state.regenUrgent = 240;
       paint.deleted = true;
       narrateLife({
         short: "a cell was taken. the body remembers",

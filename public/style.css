@@ -445,6 +445,7 @@ body {
 }
 .morph-chip:hover { border-color: var(--line-strong); color: var(--ink); }
 .morph-chip.on { color: var(--cream); border-color: var(--bound); background: rgba(255,209,92,0.08); }
+.morph-chip.in { box-shadow: 0 0 0 1px rgba(132, 176, 255, 0.55) inset; }
 .log-entry {
   padding: 10px 12px 10px 14px;
   border-left: 1px solid var(--line);
