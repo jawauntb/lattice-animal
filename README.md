@@ -36,8 +36,17 @@ Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
   dissolve, merge, and wherever you drop minds. Nearby cells tighten
   their spacing; the shared grid itself does not collapse. Telemetry
   `χ` is the peak of that field.
-- **Light cones / valence / remembered holes** — code is in. They are
-  not yet visible enough to count as part of the watching.
+- **Valence threads** — seven colored spokes on a searching mind.
+  At commit they fold into one cream line.
+- **W‑max fan** — a cream family of compatible rotations at the
+  gauge origin. Wide while the field is still choosing.
+- **Light cones** — a cool circle around each searching mind.
+  Overlaps glow. A committed body shares one fused cone.
+- **Remembered holes** — dashed cells after you take a committed
+  square. The body tries to sit someone there again.
+- **If the field has to shrink** to stay snappy on a phone, a
+  small notice says so. Delaunay is served from this site, not a
+  CDN.
 - **Birth flash rings** — expanding cream rings when a mind commits. When
   multiple minds commit within the same tick, their rings amplify into a
   brighter *chord* burst (Mind‑Cannot‑Smear‑Across‑Time).

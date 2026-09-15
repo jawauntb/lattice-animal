@@ -216,16 +216,19 @@ demo needs but doesn't have:
 
 1. **No causal‑identity per species** (Bennett). Ten tiny V nudges exist.
    Species still read as hue and voice.
-2. **No visible cognitive light cones** (Levin, Bennett). The draw call
-   is too faint to show what a mind can influence.
-3. **No seen target morphology memory** (Levin). Storage exists; the
-   remembered shape is not visible.
-4. **No seen regenerative response** (Levin). Long‑press can delete.
-   Reforming the remembered holes has not been shown.
-5. **W‑maxing not visible** (Bennett). `gauge.width` is a number, not a
-   readable family of compatible thetas.
-6. **Tapestry of valence not visible** (Bennett). `Mind.valence` exists.
-   The collapse at commit has not been shown.
+2. **Cognitive light cones are on searching minds** (Levin, Bennett).
+   Committed bodies share a fused cone. Do not put a ring on every
+   committed cell — that reads as graph paper.
+3. **Target morphology memory is visible** (Levin). Dashed holes mark
+   remembered squares after a cell is taken.
+4. **Regenerative response is visible** (Levin). Long‑press deletes;
+   spawn prefers the missing squares. Pose alignment is invariant
+   to which corner you took.
+5. **W‑maxing is visible** (Bennett). The origin draws a cream fan
+   whose width is the compatible family. The gauge only snaps when
+   that family is narrow.
+6. **Tapestry of valence is visible** (Bennett). Seven threads fold
+   to one cream spoke at commit.
 7. **No temporal gap visualization** (Bennett). A chord/arpeggio button
    exists. The smear across ticks has not been shown.
 8. **No visible 2nd‑order‑self** (Bennett). Ghost dots are too faint.

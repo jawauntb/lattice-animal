@@ -155,22 +155,105 @@ const CFG = {
   holdMs: 520,
 };
 
+// Pixel + frame budget for Chrome on a phone. The field remaps into this
+// sim size; CSS still fills the viewport so a resize never blanks the canvas.
+const BUDGET = {
+  maxCssW: 1440,
+  maxCssH: 960,
+  maxPixels: 2_200_000,
+  maxDpr: 2,
+  mobileDpr: 1.5,
+  frameMs: 22,
+  heavyMs: 36,
+  mindCap: 140,
+};
+
 // ─── DOM / Canvas setup ──────────────────────────────────────────────────────
 const canvas = document.getElementById("stage");
-const ctx = canvas.getContext("2d");
-let dpr = Math.max(1, Math.min(2.25, window.devicePixelRatio || 1));
+const ctx = canvas.getContext("2d", { alpha: false });
+let dpr = 1;
+let viewW = 0, viewH = 0;
 let W = 0, H = 0;
 
+function coarsePointer() {
+  return window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+}
+
+function fitView() {
+  viewW = Math.max(1, window.innerWidth);
+  viewH = Math.max(1, window.innerHeight);
+  dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, coarsePointer() ? BUDGET.mobileDpr : BUDGET.maxDpr));
+  let w = viewW, h = viewH;
+  const cssScale = Math.min(1, BUDGET.maxCssW / w, BUDGET.maxCssH / h);
+  w = Math.max(320, Math.round(w * cssScale));
+  h = Math.max(240, Math.round(h * cssScale));
+  const pixels = w * h * dpr * dpr;
+  if (pixels > BUDGET.maxPixels) {
+    const k = Math.sqrt(BUDGET.maxPixels / pixels);
+    w = Math.max(320, Math.round(w * k));
+    h = Math.max(240, Math.round(h * k));
+  }
+  return { w, h, scaled: w < viewW - 4 || h < viewH - 4 };
+}
+
+function remapField(oldW, oldH, newW, newH) {
+  if (!oldW || !oldH || (oldW === newW && oldH === newH)) return;
+  const sx = newW / oldW, sy = newH / oldH;
+  for (const m of state.minds) {
+    m.x *= sx;
+    m.y *= sy;
+  }
+  state.gauge.cx *= sx;
+  state.gauge.cy *= sy;
+  for (const s of state.chiSources) {
+    s.cx *= sx;
+    s.cy *= sy;
+  }
+  state.chi = null;
+}
+
+function clientToSim(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const rw = rect.width || viewW || 1;
+  const rh = rect.height || viewH || 1;
+  return {
+    x: (clientX - rect.left) * (W / rw),
+    y: (clientY - rect.top) * (H / rh),
+  };
+}
+
+function noteBlowup(msg, holdMs = 4200) {
+  const el = document.getElementById("field-notice");
+  if (!el) return;
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(noteBlowup._t);
+  noteBlowup._t = setTimeout(() => { el.hidden = true; }, holdMs);
+}
+
 function resize() {
-  dpr = Math.max(1, Math.min(2.25, window.devicePixelRatio || 1));
-  W = window.innerWidth;
-  H = window.innerHeight;
-  canvas.width = Math.floor(W * dpr);
-  canvas.height = Math.floor(H * dpr);
-  canvas.style.width = W + "px";
-  canvas.style.height = H + "px";
+  const oldW = W, oldH = H;
+  const fit = fitView();
+  W = fit.w;
+  H = fit.h;
+  const bw = Math.max(1, Math.floor(W * dpr));
+  const bh = Math.max(1, Math.floor(H * dpr));
+  if (canvas.width !== bw) canvas.width = bw;
+  if (canvas.height !== bh) canvas.height = bh;
+  canvas.style.width = viewW + "px";
+  canvas.style.height = viewH + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  makeDust();
+  if (typeof state !== "undefined") {
+    remapField(oldW, oldH, W, H);
+    makeDust();
+    if (fit.scaled) {
+      state.perf.scaledAt = performance.now();
+      noteBlowup("the field was scaled so this screen stays snappy", 6400);
+    }
+    if (typeof render === "function") {
+      try { render(); } catch { noteBlowup("the field skipped a frame so it could keep walking"); }
+    }
+  }
 }
 window.addEventListener("resize", resize);
 
@@ -213,6 +296,7 @@ const state = {
   chiW: 0,
   chiH: 0,
   chiSources: [],           // { cx, cy, amp, sigma, decay }
+  perf: { lastMs: 0, skipHeavy: false, streak: 0 },
 };
 
 // hash → integer in [0, n)
@@ -301,10 +385,30 @@ function memberAnchor(members, minds) {
 }
 
 function missingOffsets(members, minds, memory) {
-  if (!memory || !memory.length) return [];
-  const { minX, minY } = memberAnchor(members, minds);
-  const have = new Set(members.map(i => `${minds[i].gx - minX},${minds[i].gy - minY}`));
-  return memory.filter(k => !have.has(k));
+  return missingWorldCells(members, minds, memory).map(h => h.key);
+}
+
+function missingWorldCells(members, minds, memory) {
+  if (!memory || !memory.length || !members.length) return [];
+  const have = members.map(i => [minds[i].gx, minds[i].gy]);
+  const mem = memory.map(k => k.split(",").map(Number));
+  const haveSet = new Set(have.map(([a, b]) => `${a},${b}`));
+  let bestDx = 0, bestDy = 0, bestN = -1;
+  for (const [hx, hy] of have) {
+    for (const [mx, my] of mem) {
+      const dx = hx - mx, dy = hy - my;
+      let n = 0;
+      for (const [x, y] of mem) if (haveSet.has(`${x + dx},${y + dy}`)) n++;
+      if (n > bestN) { bestN = n; bestDx = dx; bestDy = dy; }
+    }
+  }
+  if (bestN < memory.length * 0.5) return [];
+  const out = [];
+  for (const [x, y] of mem) {
+    const gx = x + bestDx, gy = y + bestDy;
+    if (!haveSet.has(`${gx},${gy}`)) out.push({ gx, gy, key: `${x},${y}` });
+  }
+  return out;
 }
 
 function adjacentToMembers(gx, gy, members, minds) {
@@ -374,13 +478,11 @@ function preferredSpawn(parent, occ) {
       ? MORPHS.find(m => m.key === state.ingressMorph).cells.map(([x, y]) => `${x},${y}`)
       : null);
   if (memory && members.length) {
-    const { minX, minY } = memberAnchor(members, minds);
-    const missing = missingOffsets(members, minds, memory).slice().sort(() => Math.random() - 0.5);
-    for (const k of missing) {
-      const [dx, dy] = k.split(",").map(Number);
-      const gx = minX + dx, gy = minY + dy;
+    const missing = missingWorldCells(members, minds, memory).slice().sort(() => Math.random() - 0.5);
+    for (const hole of missing) {
+      const gx = hole.gx, gy = hole.gy;
       if (!occ.has(`${gx},${gy}`) && adjacentToMembers(gx, gy, members, minds)) {
-        return { gx, gy, dx, dy, regen: true };
+        return { gx, gy, dx: gx - parent.gx, dy: gy - parent.gy, regen: true };
       }
     }
   }
@@ -459,6 +561,9 @@ function seed(count = CFG.seedCount) {
   state.chi = null;
   state.chiW = 0;
   state.chiH = 0;
+  state._delaunay = null;
+  state._voronoi = null;
+  state._neighbors = null;
   renderDrawerLog();
 }
 
@@ -563,7 +668,23 @@ function gaugeToWorld(u, v, g = state.gauge) {
 }
 function nearestCell(x, y, g = state.gauge) {
   const { u, v } = worldToGauge(x, y, g);
-  return { gx: Math.round(u), gy: Math.round(v) };
+  const gx = Math.round(u), gy = Math.round(v);
+  const width = g.width || 0;
+  // W-max: while the rotation family is still wide, pick the cell that
+  // stays compatible across the family rather than the single mean theta.
+  if (width < 0.07) return { gx, gy };
+  let bestGx = gx, bestGy = gy, bestD = Infinity;
+  const samples = 5;
+  for (let i = 0; i < samples; i++) {
+    const t = g.theta + ((i / (samples - 1)) - 0.5) * 2 * width;
+    const alt = { cx: g.cx, cy: g.cy, theta: t, s: g.s };
+    const w = worldToGauge(x, y, alt);
+    const cand = { gx: Math.round(w.u), gy: Math.round(w.v) };
+    const p = gaugeToWorld(cand.gx, cand.gy, alt);
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (d < bestD) { bestD = d; bestGx = cand.gx; bestGy = cand.gy; }
+  }
+  return { gx: bestGx, gy: bestGy };
 }
 function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
 
@@ -696,7 +817,7 @@ function updateLivingPhase() {
     * (spawnHungry ? 2.4 : 1)
     * (state.ingressMorph ? 1.35 : 1)
     * (state.regenUrgent > 0 ? 5 : 1);
-  if (spawnRoll < spawnChance && minds.length < LIFE.maxMinds) {
+  if (spawnRoll < spawnChance && minds.length < Math.min(LIFE.maxMinds, BUDGET.mindCap)) {
     did = trySpawn() || did;
   }
   // Occasionally consider fission
@@ -1233,7 +1354,7 @@ function step() {
         m.committed = true;
         m.commitFlash = 45;
         m._arpDelay = 0;
-        m.collapse = 36;
+        m.collapse = 72;
         m.bornAt = state.frame;
         freshCommits.push(m);
       }
@@ -1421,13 +1542,14 @@ function render() {
 
   rebuildChi();
   drawAmbient();
-  drawChiField();
+  const heavy = !(state.perf && state.perf.skipHeavy);
+  if (heavy) drawChiField();
   drawLightCones();
   drawWmaxFan();
   drawMorphGhosts();
-  drawAnticipation();
+  if (heavy) drawAnticipation();
   drawDust();
-  drawTwinkles();
+  if (heavy) drawTwinkles();
   drawGhostLattice();
   drawMembranes();     // Voronoi cells filled with each mind's tint (soft)
   drawVoronoiEdges();  // very faint boundary lines above the fills
@@ -1435,7 +1557,7 @@ function render() {
   drawBonds();         // filaments between minds
   drawField();         // vector cilia
   drawMinds();         // nucleus + organelles
-  drawPredictiveGhosts();
+  if (heavy) drawPredictiveGhosts();
 }
 
 function drawAmbient() {
@@ -1477,12 +1599,25 @@ function drawLightCones() {
   const gs = state.gauge.s;
   ctx.save();
   const byAnimal = new Map();
+  const seekers = minds.filter(m => !m.committed);
+  const coneBudget = seekers.length <= 18
+    ? new Set(seekers)
+    : new Set(seekers.filter(m => m.settle > 0).concat(seekers.slice(0, 12)));
   for (const m of minds) {
     const r = (m.localS || gs) * CFG.coneScale * (m.committed && m.animalId >= 0 ? 1.15 : 1);
     m.lightCone = r;
-    if (!(m.committed && m.animalId >= 0)) {
-      ctx.strokeStyle = "rgba(132, 176, 255, 0.24)";
-      ctx.lineWidth = 1.15;
+    // Per-mind cones stay on searching minds only. Committed cells join
+    // the animal's fused cone so the field does not turn into graph paper.
+    if (!m.committed && coneBudget.has(m)) {
+      const g = ctx.createRadialGradient(m.x, m.y, r * 0.15, m.x, m.y, r);
+      g.addColorStop(0, "rgba(132, 176, 255, 0.12)");
+      g.addColorStop(1, "rgba(132, 176, 255, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(132, 176, 255, 0.48)";
+      ctx.lineWidth = 1.35;
       ctx.beginPath();
       ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
       ctx.stroke();
@@ -1496,14 +1631,16 @@ function drawLightCones() {
   if (neigh) {
     for (let i = 0; i < minds.length; i++) {
       const m = minds[i];
+      if (m.committed) continue;
       for (const j of neigh[i] || []) {
         if (j <= i) continue;
         const o = minds[j];
+        if (o.committed) continue;
         const d = Math.hypot(m.x - o.x, m.y - o.y);
         if (d < (m.lightCone + o.lightCone) * 0.55) {
-          ctx.fillStyle = "rgba(180, 210, 255, 0.10)";
+          ctx.fillStyle = "rgba(180, 210, 255, 0.16)";
           ctx.beginPath();
-          ctx.arc((m.x + o.x) * 0.5, (m.y + o.y) * 0.5, 10, 0, Math.PI * 2);
+          ctx.arc((m.x + o.x) * 0.5, (m.y + o.y) * 0.5, 14, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -1514,15 +1651,15 @@ function drawLightCones() {
     let cx = 0, cy = 0, r = 0;
     for (const m of group) { cx += m.x; cy += m.y; r = Math.max(r, m.lightCone || gs); }
     cx /= group.length; cy /= group.length;
-    ctx.strokeStyle = "rgba(160, 200, 255, 0.32)";
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(160, 200, 255, 0.48)";
+    ctx.lineWidth = 1.7;
     ctx.setLineDash([5, 7]);
     ctx.beginPath();
     ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
     const g = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 0.85);
-    g.addColorStop(0, "rgba(150, 178, 226, 0.04)");
+    g.addColorStop(0, "rgba(150, 178, 226, 0.10)");
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -1534,23 +1671,30 @@ function drawLightCones() {
 
 function drawWmaxFan() {
   const g = state.gauge;
-  const w = g.width || 0.28;
+  const w = Math.max(0.03, g.width || 0.28);
   const wide = clamp(w / 0.4, 0, 1);
-  if (wide < 0.08) return;
   ctx.save();
   ctx.translate(g.cx, g.cy);
   ctx.rotate(g.theta);
-  ctx.strokeStyle = `rgba(${CREAM}, ${0.08 + 0.22 * wide})`;
-  ctx.lineWidth = 1.1;
-  const reach = g.s * 3.2;
+  const reach = g.s * 3.6;
+  ctx.fillStyle = `rgba(${CREAM}, ${0.045 + 0.12 * wide})`;
+  for (const base of [0, Math.PI / 2]) {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, reach, base - w, base + w);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.strokeStyle = `rgba(${CREAM}, ${0.28 + 0.40 * wide})`;
+  ctx.lineWidth = 1.35;
   for (const sign of [-1, 1]) {
     const a = sign * w;
     ctx.beginPath();
-    ctx.moveTo(Math.cos(a) * 12, Math.sin(a) * 12);
+    ctx.moveTo(Math.cos(a) * 10, Math.sin(a) * 10);
     ctx.lineTo(Math.cos(a) * reach, Math.sin(a) * reach);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(Math.cos(a + Math.PI / 2) * 12, Math.sin(a + Math.PI / 2) * 12);
+    ctx.moveTo(Math.cos(a + Math.PI / 2) * 10, Math.sin(a + Math.PI / 2) * 10);
     ctx.lineTo(Math.cos(a + Math.PI / 2) * reach, Math.sin(a + Math.PI / 2) * reach);
     ctx.stroke();
   }
@@ -1563,33 +1707,31 @@ function drawMorphGhosts() {
   const by = new Map();
   for (let i = 0; i < minds.length; i++) {
     const m = minds[i];
-    if (m.animalId < 0) continue;
+    if (m.animalId < 0 || !m.committed) continue;
     if (!by.has(m.animalId)) by.set(m.animalId, { color: m.animalColor, members: [] });
     by.get(m.animalId).members.push(i);
   }
-  const pulse = 0.45 + 0.35 * (0.5 + 0.5 * Math.sin(state.frame * 0.12));
+  const pulse = 0.55 + 0.40 * (0.5 + 0.5 * Math.sin(state.frame * 0.12));
   ctx.save();
   for (const { color, members } of by.values()) {
     const memory = state.morphByColor.get(color);
     if (!memory || members.length < 1) continue;
-    const missing = missingOffsets(members, minds, memory);
+    const missing = missingWorldCells(members, minds, memory);
     if (!missing.length) continue;
-    const { minX, minY } = memberAnchor(members, minds);
-    for (const k of missing) {
-      const [dx, dy] = k.split(",").map(Number);
-      const p = gaugeToWorld(minX + dx, minY + dy);
+    for (const hole of missing) {
+      const p = gaugeToWorld(hole.gx, hole.gy);
       ctx.strokeStyle = `rgba(${color || CREAM}, ${pulse})`;
-      ctx.shadowColor = `rgba(${color || CREAM}, 0.55)`;
-      ctx.shadowBlur = 10;
-      ctx.lineWidth = 1.6;
-      ctx.setLineDash([3, 3]);
+      ctx.shadowColor = `rgba(${color || CREAM}, 0.7)`;
+      ctx.shadowBlur = 14;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 11, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = `rgba(${CREAM}, 0.16)`;
+      ctx.fillStyle = `rgba(${CREAM}, 0.22)`;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 3.2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -1614,9 +1756,9 @@ function drawAnticipation() {
       const mem = state.morphByColor.get(m.animalColor);
       const members = [];
       for (let i = 0; i < minds.length; i++) if (minds[i].animalId === m.animalId) members.push(i);
-      const missing = mem ? missingOffsets(members, minds, mem) : [];
-      const wanted = missing.includes(`${gx - memberAnchor(members, minds).minX},${gy - memberAnchor(members, minds).minY}`);
-      const mount = wanted || chi > 1.06 || state.regenUrgent > 0 || state.ingressMorph;
+      const missing = mem ? missingWorldCells(members, minds, mem) : [];
+      const wanted = missing.some(h => h.gx === gx && h.gy === gy);
+      const mount = wanted || chi > 1.18;
       if (!mount) continue;
       seen.add(key);
       const a = clamp(0.16 + (chi - 1) * 0.22 + (wanted ? 0.22 : 0), 0, 0.48);
@@ -2017,14 +2159,14 @@ function drawMinds() {
     // Seven valence threads. Open on the uncommitted mind; collapse to one
     // cream spoke in the frames after commit.
     if (m.valence && (!m.committed || m.collapse > 0)) {
-      const fold = m.committed ? 1 - (m.collapse / 36) : 0;
+      const fold = m.committed ? 1 - (m.collapse / 72) : 0;
       for (let k = 0; k < 7; k++) {
         const a0 = (k / 7) * Math.PI * 2 + m.phase * 0.15;
         const a = a0 * (1 - fold);
-        const len = (2.8 + 7 * m.valence[k]) * (1 - 0.55 * fold);
-        const tint = fold > 0.65 ? CREAM : VALENCE_TINTS[k];
-        ctx.strokeStyle = `rgba(${tint}, ${0.42 + 0.40 * m.valence[k]})`;
-        ctx.lineWidth = 1.15;
+        const len = (4.2 + 10 * m.valence[k]) * (1 - 0.45 * fold);
+        const tint = fold > 0.62 ? CREAM : VALENCE_TINTS[k];
+        ctx.strokeStyle = `rgba(${tint}, ${0.58 + 0.40 * m.valence[k]})`;
+        ctx.lineWidth = 1.7;
         ctx.beginPath();
         ctx.moveTo(m.x + Math.cos(a) * 5, m.y + Math.sin(a) * 5);
         ctx.lineTo(m.x + Math.cos(a) * (5 + len), m.y + Math.sin(a) * (5 + len));
@@ -2275,8 +2417,23 @@ function setVerseText(text) {
 
 // ─── Loop ────────────────────────────────────────────────────────────────────
 function frame() {
-  if (!state.paused) step();
-  render();
+  const t0 = performance.now();
+  try {
+    if (!state.paused) step();
+    render();
+  } catch {
+    noteBlowup("the field skipped a frame so it could keep walking");
+  }
+  const dt = performance.now() - t0;
+  state.perf.lastMs = dt;
+  if (dt > BUDGET.frameMs) state.perf.streak++;
+  else state.perf.streak = Math.max(0, state.perf.streak - 1);
+  const wasHeavy = state.perf.skipHeavy;
+  state.perf.skipHeavy = state.perf.streak >= 2;
+    const scaledRecently = state.perf.scaledAt && (performance.now() - state.perf.scaledAt) < 6400;
+    if (state.frame > 45 && !scaledRecently && (dt > BUDGET.heavyMs || (state.perf.skipHeavy && !wasHeavy))) {
+    noteBlowup("this screen is working hard — some glows were dimmed");
+  }
   if (state.frame % 6 === 0) tick();
   if (state.frame - lastSaveFrame > SAVE_EVERY_FRAMES) {
     lastSaveFrame = state.frame;
@@ -2371,6 +2528,48 @@ window.__la = Object.assign(window.__la || {}, {
   },
   emitChi,
   rememberAnimal,
+  clientToSim,
+  noteBlowup,
+  budget: BUDGET,
+  size() {
+    return { W, H, viewW, viewH, dpr, pixels: W * H * dpr * dpr, lastMs: state.perf.lastMs, skipHeavy: state.perf.skipHeavy };
+  },
+  pickCommitted() {
+    const m = state.minds.find(mm => mm.committed && mm.animalId >= 0);
+    if (!m) return null;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: m.x, y: m.y,
+      clientX: rect.left + m.x * (rect.width / W),
+      clientY: rect.top + m.y * (rect.height / H),
+      color: m.animalColor,
+    };
+  },
+  wound() {
+    const m = state.minds.find(mm => mm.committed && mm.animalId >= 0);
+    if (!m) return false;
+    rememberAnimal(m);
+    m.committed = false;
+    m.dying = 48;
+    emitChi(m.x, m.y, 1.05, 80);
+    state.regenUrgent = 240;
+    return { x: m.x, y: m.y, color: m.animalColor };
+  },
+  missingGhosts() {
+    let n = 0;
+    const by = new Map();
+    for (let i = 0; i < state.minds.length; i++) {
+      const m = state.minds[i];
+      if (m.animalId < 0 || !m.committed) continue;
+      if (!by.has(m.animalId)) by.set(m.animalId, { color: m.animalColor, members: [] });
+      by.get(m.animalId).members.push(i);
+    }
+    for (const { color, members } of by.values()) {
+      const memory = state.morphByColor.get(color);
+      if (memory) n += missingOffsets(members, state.minds, memory).length;
+    }
+    return n;
+  },
   infect(i) {
     const m = state.minds[i];
     if (!m) return false;
@@ -2425,9 +2624,7 @@ function isCoarsePointer() {
 }
 canvas.addEventListener("touchmove", (e) => { e.preventDefault(); }, { passive: false });
 canvas.addEventListener("pointerdown", (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  const { x, y } = clientToSim(e.clientX, e.clientY);
   paint.active = true;
   paint.moved = false;
   paint.spoken = false;
@@ -2466,9 +2663,7 @@ canvas.addEventListener("pointerdown", (e) => {
   try { canvas.setPointerCapture(e.pointerId); } catch {}
 });
 canvas.addEventListener("pointermove", (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  const { x, y } = clientToSim(e.clientX, e.clientY);
   state.mouse.x = x;
   state.mouse.y = y;
   state.mouse.inside = true;
@@ -2498,9 +2693,7 @@ canvas.addEventListener("pointermove", (e) => {
   }
 });
 canvas.addEventListener("pointerup", (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  const { x, y } = clientToSim(e.clientX, e.clientY);
   clearTimeout(paint.holdTimer);
   if (paint.pendingDrop && !paint.deleted && !paint.moved) {
     dropMindsAt(paint.startX, paint.startY, 3, 0.8);
@@ -2714,7 +2907,7 @@ requestAnimationFrame(frame);
 // Some Chrome UI (debug bars, download bars) shifts viewport without firing
 // resize. Poll size and re-fit if it changed.
 setInterval(() => {
-  if (window.innerWidth !== W || window.innerHeight !== H) resize();
+  if (window.innerWidth !== viewW || window.innerHeight !== viewH) resize();
 }, 400);
 window.addEventListener("load", resize);
 window.addEventListener("visibilitychange", () => {

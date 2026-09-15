@@ -70,12 +70,31 @@ regress any of these.
   up to 3 days
 - Rescaled to new viewport on restore
 - `R` (reseed) clears the save
-- Schema `la:field:v2` — persists `V` and `restingV`; v1 caches rejected
+- Schema `la:field:v3` — persists `V`, `restingV`, valence, and
+  gauge width; older caches are rejected
 - Visibility restore forces resize + immediate render so the tab
   doesn't sit blank while rAF ramps back up
+- Resize remaps every mind and the gauge into the new sim size,
+  then paints immediately. Polling watches `innerWidth` /
+  `innerHeight`, not the (possibly capped) sim size, so a budget
+  cap cannot loop-clear the canvas.
+- Pixel / dpr / frame budget: sim CSS is capped (1440×960,
+  2.2M backing pixels, dpr 1.5 on coarse pointers). Slow frames
+  drop expensive glows. A glass notice tells you when the field
+  was scaled or dimmed.
 
 **Rendering**
 - Cosmic ground, drifting dust, twinkles
+- Seven valence threads on searching minds; they fold to one
+  cream spoke after commit
+- W‑max fan at the gauge origin — a cream family of compatible
+  rotations that narrows as the field agrees
+- Cognitive light cones on searching minds (budgeted so a fresh
+  seed is not graph paper); committed bodies share one fused cone
+- Remembered-hole ghosts: dashed cells where a damaged animal
+  still wants to sit someone
+- Blowup notice (`.field-notice`) when the field is scaled or
+  a frame is dropped to stay snappy
 - Colored translucent Voronoi membranes per mind (4‑hue tissue
   palette for identity)
 - Per‑animal color from a 12‑hue palette (stable across
@@ -146,7 +165,7 @@ regress any of these.
   working directory
 - Monitor deploy: `Monitor` tool with an `until` loop polling
   `railway deployment list --json`
-- Iter counter is at 9 (8 code deploys + 1 doc‑only)
+- Iter counter is at 11 (resize budget + remaining Tier 0 made readable)
 
 ## Documentation on `main`
 
@@ -199,10 +218,15 @@ back to one of those three, you're decorating.
 them.
 - Per‑mind V (scalar; Levin voltage / Bennett concern) — **shipped**
 - Concern field χ(x,y) as sum of Gaussians on active events — **shipped**
-- Tapestry of valence — **code only, not seen**
-- W‑maxing gauge — **code only, not seen**
-- Cognitive light cones — **code only, not seen**
-- Target morphology memory + regenerative response — **code only, not seen**
+- Tapestry of valence — **seen** (seven colored threads collapse
+  to one cream spoke at commit)
+- W‑maxing gauge — **seen** (cream fan at the origin; telemetry
+  `width`; commit samples from the family)
+- Cognitive light cones — **seen** (searching minds + fused
+  animal cone; overlap glows)
+- Target morphology memory + regenerative response — **seen**
+  (dashed holes after a cell is taken; spawn prefers those
+  squares). Long‑press still starts it.
 
 **Tier 1.5 (Bennett + Levin direct borrows):**
 - Species causal‑identity policies — **code only, not seen**
@@ -232,10 +256,10 @@ predictive closure, objects‑from‑concern)
 
 ## Recommended first move for the next agent
 
-V and χ are the only new substrate you can actually see. Do not
-check another box until a screenshot shows that mechanic. Next
-visible work is still Tier 0: valence collapse, then w‑maxing,
-then light cones, then remembered shape + regen.
+V, χ, valence, w‑max, light cones, and remembered holes are on
+the field. Do not check a *new* box until a screenshot shows
+that mechanic. Next visible work is Tier 1 / 1.5: seams,
+anticipation, bottleneck, species-as-cause, arpeggio smear.
 
 Historical substrate order (V and χ shipped; the rest is unverified):
 
@@ -338,11 +362,14 @@ think they exist yet on production:
 - **Space‑warp curvature under χ** — Tier 4. Not started.
 - **Sexual dimorphism** — Tier 2, blocked on fly‑connectome.
 - **PreText / interactive moving text** — Tier 3.5. Not started.
-- **Remaining open work** — all of Tier 0 after V/χ, plus Tier 1/1.5
-  visuals. Do not mark them shipped until a screenshot shows the
-  mechanic. Also still open: fly connectome, server-side persistent
-  life, isolate-an-animal, listen mode, space-warp, PreText, sexual
-  dimorphism, pull-to-split. (`SAVE_KEY` is `"la:field:v3"`.)
+- **Remaining open work** — Tier 1 / 1.5 visuals still need their
+  own screenshot before you check them. Also still open: fly
+  connectome, server-side persistent life, isolate-an-animal,
+  listen mode, space-warp, PreText, sexual dimorphism,
+  pull-to-split. (`SAVE_KEY` is `"la:field:v3"`.)
+- **Self-hosted Delaunay** — `public/vendor/d3-delaunay.js` plus
+  `delaunator.js` and `robust-predicates.js`. No CDN on the
+  hot path.
 - **Autodeploy** — Railway source is `jawauntb/lattice-animal@main`.
   See `docs/railway-autodeploy.md`. That part is real.
 

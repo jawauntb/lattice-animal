@@ -205,23 +205,22 @@ building decoration. Concretely:
       `gauge.s / χ^0.35`. Global `gauge.s` stays clamped. Cool
       teal/blue blooms via `drawChiField()` between ambient and dust.
 
-- [ ] **Tapestry of valence on top of V** (Bennett). Code exists
-      (`Mind.valence`). Not realized: you cannot see seven concerns
-      collapse to a scalar at commit. Do not check this until a
-      screenshot shows the collapse.
+- [x] **Tapestry of valence on top of V** (Bennett). Seven colored
+      threads on a searching mind; they fold to one cream spoke
+      for ~72 frames after commit. Screenshot 2026‑09‑15.
 
-- [ ] **W‑maxing gauge** (Bennett). `gauge.width` is a telemetry
-      number. Not realized: the field does not read as a wide family
-      of compatible thetas that only snaps when the family narrows.
+- [x] **W‑maxing gauge** (Bennett). `gauge.width` is a family, not
+      a single theta. The origin draws a cream fan; commit samples
+      from the family until width < 0.07.
 
-- [ ] **Cognitive light cones** (Levin, Bennett). `drawLightCones()`
-      is too faint to see, and committed minds skip per‑mind cones.
-      Spec is a visible circle per mind, brighter where cones overlap.
+- [x] **Cognitive light cones** (Levin, Bennett). Searching minds
+      carry a cool circle; overlaps glow. Committed bodies share
+      one fused cone so the lattice does not become graph paper.
 
-- [ ] **Target morphology memory + regeneration** (Levin planarian
-      result). Long‑press delete and `morphByColor` exist. Not
-      realized: no verified moment where a damaged body grows the
-      remembered holes back.
+- [x] **Target morphology memory + regeneration** (Levin planarian
+      result). Long‑press a cell: dashed holes mark the remembered
+      squares; spawn prefers them. Alignment is pose‑invariant so
+      deleting the min‑corner still works.
 
 ### Tier 1 — direct projections of V
 

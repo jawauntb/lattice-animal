@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (iter 10 — concern field χ: 16 px grid, event Gaussians, local spacing warp).
+Last updated: 2026‑09‑15 (iter 11 — resize remap + pixel/frame budget + self-hosted Delaunay; valence / w‑max / cones / morph holes readable).
 
 ---
 
@@ -40,6 +40,7 @@ lattice_animal/
     ├── style.css                      ← all styling
     ├── main.js                        ← sim + rendering + interactions (the heart)
     ├── audio.js                       ← ten procedural species voices + mute
+    ├── vendor/                        ← self-hosted d3-delaunay + delaunator + robust-predicates
     ├── site.webmanifest               ← PWA manifest
     ├── favicon.svg, favicon.ico, favicon-*.png
     ├── icon-192.png, icon-512.png, icon-mask.png
@@ -77,8 +78,11 @@ lattice_animal/
   - `.modal-scrim` + `.modal` — full explainer
   - `.narrator-drawer` — expandable panel below the verse
   - `.mind-tooltip` — floating hover blurb (positioned near cursor)
-  - `<script type="importmap">` maps `d3-delaunay` to a jsDelivr ESM
-    build; `main.js` is `type="module"`
+  - `<script type="importmap">` maps `d3-delaunay` to
+    `/vendor/d3-delaunay.js` (local; pulls `/vendor/delaunator.js`
+    and `/vendor/robust-predicates.js`). `main.js` is `type="module"`
+  - `.field-notice` — glass toast when the sim is scaled or a
+    heavy frame is dropped
   - Bottom inline `<script>` wires all button click / drawer /
     modal / M‑key logic. Talks to `main.js` through `window.__la`.
 
@@ -260,7 +264,9 @@ The tooltip and telemetry read from `state` but don't mutate it.
 state = {
   minds: [Mind, ...],                 // grows/shrinks via spawn/dissolve/paint
   dust: [...], twinkles: [...],       // cosmos
-  gauge: { cx, cy, theta, s },        // shared grid (s still frozen/clamped)
+  gauge: { cx, cy, theta, s, width }, // shared grid (s frozen; width is the w‑max family)
+  perf: { lastMs, skipHeavy, streak, scaledAt },
+  viewW/viewH vs W/H,                 // CSS viewport vs capped sim size
   jitter, paused,
   showVoronoi, showField, showGhost,  // toggles (hidden keyboard shortcuts)
   frame, mouse,
