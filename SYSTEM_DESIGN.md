@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (Session 4, iter 6 — hover blurbs + README).
+Last updated: 2026‑09‑15 (Session 4, iter 7 — persistence + second research pass docs).
 
 ---
 
@@ -334,6 +334,28 @@ domain` and returned https URL.
 - **Add a new mobile control** — add an entry to the legend as
   `<button class="row keys tappable" data-action="<name>">`, handle in
   the `fireAction` switch in `index.html`.
+- **Persist a new state field** — extend `serializeField()` and
+  `tryRestoreField()` in `main.js`. Bump the schema version tag
+  (`SAVE_KEY = "la:field:v<N>"`) so old caches are rejected.
+
+## The next-substrate build (Tier 0 in AGENTS.md ideas queue)
+
+Almost every idea in the ideas queue projects out of two new state
+fields we haven't shipped yet. When you build them, add:
+
+- `Mind.V` — a scalar in ~[-1, 1] initialized from a Gaussian centered
+  on the species' resting V. Each frame diffuses toward
+  `mean(V of committed Voronoi neighbors)` with a small rate ~0.02.
+  Include in `serializeField()`.
+- `state.chi: Float32Array(W × H / gridStep²)` — the concern field
+  χ(x, y), recomputed from active event sources each frame at a
+  coarse resolution (16 px per cell is fine). Cached in `state._chi`.
+  Sources are `state.chiSources: Array<{cx, cy, sigma, amp, decay}>`,
+  managed by the event triggers (spawn/fission/merge/dissolve/void).
+
+Add both to the state shape table above when built. New render layers
+that read them will slot between `drawAmbient()` and `drawDust()` for
+χ visualization, and inside `drawBonds()` and `drawMinds()` for V.
 
 ## Update this file whenever
 

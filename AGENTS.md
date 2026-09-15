@@ -160,37 +160,108 @@ Chrome MCP: navigate live URL, screenshot, confirm the change is visible
 
 ## Ideas queue (things Jawaun mentioned, not yet built)
 
-Add to this as ideas come in. Cross off when shipped.
+Ranked by "unifies the most theory per line of code." Cross off when
+shipped. See `INSTRUCTIONS_AND_INSPIRATION.md` for the underlying
+mapping to specific papers.
 
-- [ ] **Click / tap an animal to isolate it** — camera zooms, other
-      animals dim, a side panel shows real-time stats and recent events
-      filtered to just this animal
-- [ ] **Listen mode** — a ♪ toggle that turns on generative music.
-      Every new bond plucks a pentatonic note whose pitch depends on
-      the animal's hue. Fission plays a dissonant interval that
-      resolves.
+### Tier 0 — the substrate (build this first; everything else lands on it)
+
+- [ ] **Per‑mind V (voltage / concern scalar).** One number on each
+      Mind, initialized from a small distribution around 0. Drifts
+      toward the mean V of its committed neighbors (a diffusion step,
+      not a snap). Species pick their resting V from the palette.
+      Bond opacity/width now depends on ΔV across the bond (Levin: gap
+      junction conductance is voltage‑gated). Commit probability
+      depends on |V − V_neighbors_mean|. This one field replaces four
+      or five ad‑hoc heuristics.
+
+- [ ] **Concern field χ(x, y).** A spatial map recomputed each frame as
+      the sum of Gaussians centered on active animal‑level events
+      (fission points, dissolving centroids, merge seams, sparse
+      voids), with amplitudes decaying over 1–2 s. Cost:
+      O(minds × ~20 sources). Local target spacing becomes
+      `spacing_global / χ(x,y)^0.35`, so Voronoi cells visibly
+      compress near activity and relax back to today's uniform gauge
+      when things quiet.
+
+### Tier 1 — direct projections of V
+
+- [x] **Persistence to localStorage** — shipped (2026‑09‑15 session).
+- [ ] **Domain‑wall seam** — where two animals' gauge orientations
+      disagree, render a shimmering crack (rather than a hard color
+      clash) using |ΔV| across the seam as the shimmer intensity.
+- [ ] **Stability‑gated brightening** — cilia glow keyed to how many
+      consecutive ticks V has agreed with itself (temporal ensemble),
+      not to instantaneous proximity to a cell.
+- [ ] **Anticipatory spawn glow** — an edge site that will host a new
+      mind builds a slow mounting glow *before* birth as its local χ
+      accumulates over several ticks.
+- [ ] **Seam‑consistency shimmer for merges** — a merge only resolves
+      to calm gold when spacing *and* rotation *and* V match across
+      the boundary. Otherwise the shimmer stays.
+- [ ] **Moved‑bottleneck load‑bearing pulse** — the mind whose small V
+      perturbation would currently most reshape the lattice carries a
+      faint traveling glow; migrates as control shifts.
+
+### Tier 2 — new mechanics enabled by V
+
+- [ ] **Tribes / relations / predation (Levin invasion phase).** When
+      an animal grows past a threshold and its V is "invasive," it
+      overexpresses connexins — its border bond amplitude ramps up,
+      it starts matching V with the neighboring animal, and either
+      absorbs it (compatible species) or triggers a defensive
+      depolarization from the target. Two species with incompatible
+      resting V behave as rivals; two with compatible V form tribes.
+- [ ] **Pull‑to‑split by touch.** Long‑press a bond to force it into
+      a large ΔV, which gates it shut; the animal splits along that
+      edge. Works on desktop and mobile.
+- [ ] **Sexual dimorphism** (post fly‑connectome). Different animals
+      wire slightly differently, per the Janelia male CNS paper's
+      finding that ~5% of neurons are sex‑specific and dimorphic
+      connectivity propagates brain‑wide.
+
+### Tier 3 — perception and interaction UI
+
+- [ ] **Click / tap an animal to isolate it.** Camera zooms and
+      centers, other animals dim, side panel shows the isolated
+      animal's real‑time V field, species, cell count, recent events,
+      lineage tree of spawns.
+- [ ] **Listen mode.** A ♪ toggle turns on generative music. Every new
+      bond plucks a pentatonic note whose pitch depends on the
+      animal's V; fission plays a dissonant interval that resolves
+      only when the two halves stabilize. Continuous 3‑pad bed
+      modulated by committed fraction and largest animal size.
+- [ ] **Neck‑based fission detector** replacing the current
+      abstract size threshold with a real geometric neck cut across
+      the animal's adjacency graph. Uses the same V field to bias
+      toward low‑conductivity necks.
+
+### Tier 4 — cosmic scale
+
 - [ ] **Stacked / looped fly connectomes** — each mind's policy is a
       small subgraph of the Janelia male CNS connectome
-      (`gs://flyem-male-cns`), looped K times per tick for cognitive
-      depth. Substrate for "recursive meta-intelligence" per Buehler.
-- [ ] **Sexual dimorphism** — after fly‑connectome integration, some
-      animals become "male‑CNS wired" and others "female‑CNS wired,"
-      with subtle behavior differences (courtship‑adjacent pursuit
-      motion, aggression response, etc.). See the male CNS paper
-      Jawaun linked (Cell, Sep 2026).
-- [ ] **Space‑warp** — GR‑animation style curvature of a background
-      mesh around each animal, so the shared field looks bent by the
-      presence of a body.
-- [ ] **Persistent life across sessions** — the animals live on the
-      server even when Jawaun isn't on the site.
-- [ ] **Tribes / relations / eat‑each‑other** — Conway‑adjacent
-      predator‑prey dynamics between species (respecting the lattice
-      invariant).
-- [ ] **Pull‑to‑split by touch** — long‑press a bond to fracture the
-      animal along that edge.
-- [ ] **objetd'art /interference borrows** — patterns that emerge from
-      overlapping wave interference; probably too visually loud for
-      the current field but might fit a background layer.
+      (`gs://flyem‑male‑cns`), looped K times per tick for cognitive
+      depth. The connectome graph carries its own V dynamics that
+      feed into the demo's per‑mind V. Requires either a compiled
+      subgraph shipping as JSON, or Modal/HF inference. This is the
+      "recursive meta‑intelligence" ceiling.
+- [ ] **Space‑warp** — GR‑animation style visible curvature of the
+      background mesh where χ(x, y) peaks, so the field itself looks
+      bent by the presence of a body.
+- [ ] **Persistent life across sessions on the server** — the field
+      lives on the Railway service between visits, not just in
+      localStorage. Requires a small state store; the animals keep
+      wandering, spawning, dying while Jawaun's away and he comes
+      back to a different world each time.
+
+### Tier 5 — copy and framing (very cheap, high leverage)
+
+- [ ] **Vector‑to‑scalar collapse caption** — a new verse for the
+      moment of commit: "the vector became a scalar."
+- [ ] **Predictive‑closure caption** — "It doesn't decide, then check.
+      The checking is the deciding."
+- [ ] **Objects‑from‑concern caption** — "The shape is not what it
+      looks like. It's what commits together."
 
 ## When you don't know what to do
 

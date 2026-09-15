@@ -75,6 +75,64 @@ looks like a generic Claude gradient, throw it out.
 Reference the Mathelirium / general‑relativity animation for the "space
 itself is warped by presence" feeling around each animal.
 
+## The unifying substrate: one scalar field
+
+*Synthesized from a full research pass (Cluster 1: Concern & Planning ·
+Cluster 2: Allostatic, Uncertainty, Self, Memory · Cluster 3: Geometry
+of Concern & Metric Deformation · Cluster 4: Load‑Bearing Doctrine ·
+plus Grodstein, Mathews & Levin 2026, "Membrane voltage and connexin
+expression work together to enhance tumor growth and metastasis in
+cancer").*
+
+All twenty‑plus theory papers we've surveyed converge on the same
+demand: **one per‑mind scalar** that decides bond conductivity to
+neighbors, drives visible intensity, warps the local metric, and gates
+commitment. The papers call it different things — *concern* in the
+Metaphysics of Intelligence writing, *χ* in the metric‑deformation
+paper, *gauge fit* in DVFP, *V_mem* (membrane voltage) in Levin's
+bioelectrics — but it is the same quantity.
+
+The Levin lens is the cleanest way to think about it:
+
+- In healthy tissue, adjacent cells share a similar V_mem. Their gap
+  junctions (analog of our warm gold bonds) are **wide open** because
+  the voltage drop ΔV_mem across the junction is small. Tissue
+  communicates and stays coherent.
+- A small tumor **depolarizes** — its V_mem shifts. The border gap
+  junctions between tumor and healthy tissue now carry a big ΔV_mem,
+  which gates them **shut**. The tumor isolates itself and resists
+  normalization.
+- When it's ready to invade, the tumor **overexpresses connexins** and
+  again matches its neighbors' V_mem — now the whole territory acts as
+  one syncytium, one very large cell that overrides its surroundings.
+
+Mapped into Lattice Animal:
+
+- Each mind carries a scalar **V** (an internal voltage / concern
+  level). Its default value drifts toward the mean V of its committed
+  neighbors.
+- The strength/opacity of every warm gold bond depends on the ΔV
+  across that bond. Same‑V bonds are open and bright; large‑ΔV bonds
+  dim toward invisible.
+- Two animals merging = the *seam‑consistency shimmer* from Cluster 4:
+  the merge only completes when ΔV across the touching boundary drops
+  below a threshold. Otherwise the shimmer stays.
+- Fission ≈ tumor isolation: a cell decouples by shifting its V so its
+  border bonds close off.
+- Species correspond to different resting V ranges (a "hyperpolarized"
+  species and a "depolarized" species behave differently at merges).
+- The Cluster 3 concern field χ(x, y) is the spatial map of |ΔV|
+  aggregated across all active seams and events — the same thing
+  viewed as a plane rather than as edges.
+
+**Everything else in this doc — the ghost‑self collapse, the chord
+commit flash, the dual‑vector display, the ambient breath, the
+stability‑gated brightening, the seam shimmer, the anticipatory spawn
+glow, the null‑tick heartbeat — is a projection of that single scalar
+onto a different visual channel.** Building each new feature by asking
+"what does V look like here?" keeps the mechanic honest and the visual
+language coherent.
+
 ## Research inspiration
 
 Jawaun's own writing is under `~/Metaphysics of Intelligence/`. The
@@ -118,6 +176,94 @@ demo already carries deliberate borrows from:
   synapses, gs://flyem‑male‑cns, open on GitHub)** — the substrate for
   the "each mind runs a real fly‑wired circuit motif looped K times"
   frontier.
+
+### Second research pass (2026‑09‑15) — additional borrows to build
+
+**Cluster 1 (Concern & Planning; papers 5–11):**
+- **Concern scalar per mind** as the hidden unifier that drives jitter
+  radius, cilia stiffness, repair‑flutter, bond decay, and spawn
+  readiness from one place.
+- **Margin‑gated jitter** — wander radius scales inversely with the
+  local gauge‑agreement margin.
+- **Repair flutter** — a committed mind knocked off‑gauge ramps back
+  over K ticks rather than snapping (distinguishes repair from
+  resistance).
+- **Exploration‑gated commit readiness** — newborns must sample enough
+  distinct candidate cells before being eligible to commit.
+- **Predictive‑closure bookend caption** ("It doesn't decide, then
+  check. The checking is the deciding.")
+
+**Cluster 2 (Allostatic State Control, Ensemble Uncertainty v2, First‑
+Order Self v2, Future Control Moves Memory, Reward Deformation):**
+- **Domain‑wall seam** — where two animals' gauge orientations
+  disagree, render a shimmering crack rather than a hard color clash.
+- **Stability‑gated brightening** — cilia glow keyed to multi‑tick
+  self‑consistency, not instantaneous proximity to a cell (fixes the
+  "instant confidence lies at seams" finding).
+- **Anticipatory spawn glow** — the edge site that will host a new
+  mind builds a slow mounting glow *before* birth.
+- **Null‑tick heartbeat** — periodically a mind stops pulling for one
+  tick; comparing pulled vs. null‑tick drift is a self‑world
+  attribution probe rendered as a soft double ring.
+- **Boundary fallback nudge** — one small orthogonal step when a
+  candidate cell conflicts with a neighbor's proposal.
+
+**Cluster 3 (Geometry of Concern; Concern Deforms a Learned Metric;
+Weakness Predicts Topology; Reward Deformation):**
+- **Concern field χ(x, y) as a spatial map of active |ΔV|.**
+  `χ(x, y) = 1 + Σₛ Aₛ · exp(-‖(x, y) − cₛ‖² / 2σₛ²)` summed over active
+  animal‑level events (fission points, dissolving centroids, merge
+  seams, sparse voids). Aₛ decays over 1–2 s.
+- **Local target spacing** becomes `spacing_global / χ(x, y)^α` with
+  α ≈ 0.3–0.4 — the measured effective‑dimension exponent from the
+  reward‑deformation paper.
+- **Radial streaking** near strong χ peaks — comet‑tail alignment
+  (effective‑dimension collapse toward 1D).
+- **Neck‑based fission** — replace the abstract "size > 8 → fission"
+  rule with a real geometric neck detector (min‑width cut across the
+  animal's adjacency graph).
+- **Spectral cilia synchrony** — long‑committed animals' cilia pulse
+  converge onto a shared low‑frequency rhythm.
+
+**Cluster 4 (Load‑Bearing Standard for Representation Claims,
+Load‑Bearing Concern Doctrine, What Matters Becomes Measurable, Typed
+Dynamic Concern Graph, Foundation Models Phase 5, Comprehensive
+Literature Review):**
+- **Vector‑to‑scalar collapse at commit** — spacing‑fit and rotation‑
+  fit stay two distinct cilia cues (length vs. saturation) until the
+  moment of commit, where they visibly fuse into gold.
+- **Seam‑consistency shimmer** — merges resolve only when the touching
+  boundary is actually locally consistent (spacing *and* rotation match
+  across it), not merely adjacent.
+- **Moved‑bottleneck load‑bearing pulse** — a faint traveling glow on
+  the mind whose small perturbation would currently reshape the
+  lattice; migrates as control shifts through the living phase.
+- **Stuck‑vs‑settled tell** — a mind immobilized by crowding (not
+  gauge agreement) flickers pale rather than warming toward gold, so
+  behavior and structure are visibly discriminated.
+- **Gauge‑ghost overlay** — brief co‑render of the old gauge grid vs.
+  the new one when the global theta updates.
+- **Bond re‑earning** — bonds render only if the local gauge check
+  reconfirms them each frame; a stale bond dims and eventually
+  dissolves.
+- **Typed dynamic concern graph** — the animal graph already has the
+  bones; the roadmap is to make node/edge types explicit. Nodes:
+  `Mind` (V, commitment state) and `Animal` (species, life‑stage,
+  viability = open‑edge count). Edges: `structural` (gold),
+  `seam` (dashed shimmer), `lineage` (translucent thread spawn→child),
+  `dissolve‑trace` (briefly kept ghost edge for audit).
+
+**Levin, Grodstein, Mathews 2026 — the tissue lens:**
+- Bond conductivity = gap‑junction conductance = a function of ΔV
+  across the bond. Same‑V neighbors form a *syncytium*; large‑ΔV
+  seams isolate.
+- Fission = a body's deliberate depolarization to close off from its
+  surroundings.
+- Merger = matching V across a boundary so the seam opens.
+- Species = resting V band. Depolarized species vs hyperpolarized
+  species behave differently at merges.
+- The "invasion" phase (bond overexpression + neighbor V matching)
+  gives us a **predator/tribe mechanic** that respects the invariant.
 
 ## The core mechanic (never break this)
 
