@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#05060a" />
 <title>Lattice Animal — a body made of minds</title>
+<meta name="description" content="A living tessellation where independent cell-minds find each other through movement alone and form a shared body. For CIMC's Lattice Animals hackathon." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
@@ -17,28 +19,32 @@
       <span class="glyph">◇</span>
       <span class="title">Lattice Animal</span>
     </div>
-    <div class="epigraph">
-      <span>a body made of minds &nbsp;·&nbsp; agreement by position, commitment by movement</span>
+    <div class="epigraph" aria-hidden="true">
+      a body made of minds &nbsp;·&nbsp; agreement by position, commitment by movement
     </div>
   </header>
 
-  <aside class="chrome legend" id="legend">
-    <div class="row"><span class="dot mind"></span><span>mind &nbsp;·&nbsp; a candidate cell</span></div>
-    <div class="row"><span class="dot bound"></span><span>bound &nbsp;·&nbsp; sees a neighbor</span></div>
-    <div class="row"><span class="dot committed"></span><span>committed &nbsp;·&nbsp; grid-locked</span></div>
-    <div class="row"><span class="dot animal"></span><span>animal &nbsp;·&nbsp; k &ge; 2 committed, connected</span></div>
+  <aside class="chrome legend" id="legend" aria-label="Legend">
+    <div class="section-title">the cast</div>
+    <div class="row"><span class="dot mind"></span>
+      <span><b>mind</b> — a candidate cell, still searching</span></div>
+    <div class="row"><span class="dot bound"></span>
+      <span><b>bound</b> — sees its neighbors, drifting into agreement</span></div>
+    <div class="row"><span class="dot committed"></span>
+      <span><b>committed</b> — stopped moving on the shared map</span></div>
+    <div class="row"><span class="dot animal"></span>
+      <span><b>animal</b> — 2+ committed minds bonded 4‑adjacent</span></div>
     <div class="sep"></div>
-    <div class="row keys">
-      <kbd>space</kbd><span>pause</span>
-    </div>
-    <div class="row keys"><kbd>r</kbd><span>reseed</span></div>
-    <div class="row keys"><kbd>v</kbd><span>voronoi</span></div>
-    <div class="row keys"><kbd>f</kbd><span>field</span></div>
-    <div class="row keys"><kbd>g</kbd><span>ghost lattice</span></div>
-    <div class="row keys"><kbd>click</kbd><span>drop a mind</span></div>
+    <div class="section-title">controls</div>
+    <div class="row keys"><kbd>space</kbd><span>pause</span></div>
+    <div class="row keys"><kbd>R</kbd><span>reseed the field</span></div>
+    <div class="row keys"><kbd>V</kbd><span>toggle voronoi</span></div>
+    <div class="row keys"><kbd>F</kbd><span>toggle vector field</span></div>
+    <div class="row keys"><kbd>G</kbd><span>toggle ghost lattice</span></div>
+    <div class="row keys"><kbd>click</kbd><span>drop three minds here</span></div>
   </aside>
 
-  <aside class="chrome telemetry" id="telemetry">
+  <aside class="chrome telemetry" id="telemetry" aria-label="Telemetry">
     <div class="kv"><span class="k">minds</span><span class="v" id="t-minds">–</span></div>
     <div class="kv"><span class="k">committed</span><span class="v" id="t-committed">–</span></div>
     <div class="kv"><span class="k">animals</span><span class="v" id="t-animals">–</span></div>
@@ -50,7 +56,70 @@
     <div class="verse" id="verse">
       no channel but movement · no commitment but position
     </div>
+    <button class="info-btn" id="info-btn" aria-haspopup="dialog" aria-controls="info-modal" aria-label="What is this?">?</button>
+    <button class="menu-btn" id="menu-btn" aria-controls="legend telemetry" aria-label="Show legend and telemetry">⌇</button>
   </footer>
+
+  <div class="modal-scrim" id="modal-scrim" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" id="info-modal">
+      <button class="modal-close" id="modal-close" aria-label="Close">×</button>
+      <h2 id="modal-title">What am I looking at?</h2>
+
+      <p class="lede">
+        A lattice animal is a shape made of grid cells stuck together — a
+        polyomino. This is a demo for CIMC's <em>Lattice Animals</em> hackathon
+        (Sep 26, 2026, San&nbsp;Francisco), where each participant brings a mind
+        for a single cell and single cells don't count.
+      </p>
+
+      <h3>The rules the minds obey</h3>
+      <ul>
+        <li>Each mind sees only its Voronoi neighbors — no shared clock, no
+          shared name, no message passing.</li>
+        <li>Its only channel is <em>movement</em>. Its only commitment is
+          <em>position</em>.</li>
+        <li>Each mind proposes a local gauge: a spacing (median distance to its
+          neighbors) and a rotation (the dominant 4‑fold orientation of its
+          neighborhood). The <em>global</em> gauge follows the mean of those
+          proposals.</li>
+        <li>Each mind is pulled toward the nearest cell of the current gauge.
+          When it stays there long enough, it <em>commits</em>.</li>
+        <li>Two 4‑adjacent committed minds form a bond. A connected component
+          of 2+ committed minds is a <em>lattice animal</em>.</li>
+      </ul>
+
+      <h3>What you're seeing</h3>
+      <ul>
+        <li><strong>Colored cells</strong> — each mind paints its Voronoi
+          region in its own tint (from the objetd'art palette). Committed cells
+          burn brighter.</li>
+        <li><strong>Vector cilia</strong> — a mind's intended next step.
+          Uncommitted minds reach outward; committed minds go still.</li>
+        <li><strong>Warm filaments</strong> — bonds between adjacent committed
+          minds. These are the polyomino's actual edges.</li>
+        <li><strong>Cream outline</strong> — the perimeter of a lattice animal.</li>
+        <li><strong>Cosmic dust &amp; twinkles</strong> — the medium the minds
+          drift through, drawn from the objetd'art <em>stars</em> vibe.</li>
+      </ul>
+
+      <h3>Numbers up top</h3>
+      <ul>
+        <li><strong>minds</strong> — total candidate cells in the field</li>
+        <li><strong>committed</strong> — minds currently locked to the shared gauge</li>
+        <li><strong>animals</strong> — number of distinct lattice animals right now</li>
+        <li><strong>largest</strong> — cells in the biggest current animal</li>
+        <li><strong>entropy</strong> — average per‑mind offset from its gauge cell (0 = perfectly still on grid)</li>
+      </ul>
+
+      <p class="attribution">
+        Movement dynamics inspired by DVFP (Dynamical Voronoi Fokker‑Planck) and
+        the ensemble‑governance framing of Structural Intelligence. Aesthetic
+        borrowed from <a href="https://objetdart-production.up.railway.app/tissue" target="_blank" rel="noopener">objetd'art tissue / cells / stars</a>.
+        Source on
+        <a href="https://github.com/jawauntb/lattice-animal" target="_blank" rel="noopener">GitHub</a>.
+      </p>
+    </div>
+  </div>
 
   <script type="importmap">
   {
@@ -60,5 +129,41 @@
   }
   </script>
   <script type="module" src="/main.js"></script>
+  <script>
+    (function () {
+      const scrim = document.getElementById('modal-scrim');
+      const openBtn = document.getElementById('info-btn');
+      const closeBtn = document.getElementById('modal-close');
+      const menuBtn = document.getElementById('menu-btn');
+      const legend = document.getElementById('legend');
+      const telemetry = document.getElementById('telemetry');
+      let lastFocus = null;
+      function openModal() {
+        lastFocus = document.activeElement;
+        scrim.hidden = false;
+        requestAnimationFrame(() => scrim.classList.add('on'));
+        closeBtn.focus();
+      }
+      function closeModal() {
+        scrim.classList.remove('on');
+        setTimeout(() => { scrim.hidden = true; }, 250);
+        if (lastFocus && lastFocus.focus) lastFocus.focus();
+      }
+      openBtn.addEventListener('click', openModal);
+      closeBtn.addEventListener('click', closeModal);
+      scrim.addEventListener('click', (e) => { if (e.target === scrim) closeModal(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !scrim.hidden) closeModal();
+        if (e.key === '?' || (e.key === '/' && (e.metaKey || e.ctrlKey))) {
+          e.preventDefault(); openModal();
+        }
+      });
+      // Mobile menu toggles the visibility of legend + telemetry
+      menuBtn.addEventListener('click', () => {
+        const on = document.body.classList.toggle('chrome-open');
+        menuBtn.setAttribute('aria-expanded', String(on));
+      });
+    })();
+  </script>
 </body>
 </html>

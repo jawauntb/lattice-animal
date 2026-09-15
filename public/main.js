@@ -24,24 +24,24 @@ const VERSES = [
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const CFG = {
-  seedCount: 132,
+  seedCount: 96,
   // Gauge negotiation
   spacingInit: 70,
   spacingMin: 46,
   spacingMax: 110,
   gaugeLR: 0.018,
   // Movement
-  snapK: 0.075,
-  neighborK: 0.006,
-  jitterInit: 2.2,
-  jitterFloor: 0.04,
-  jitterAnneal: 0.990,     // ~2s to hit floor at 60fps; robust to slower framerates
+  snapK: 0.14,
+  neighborK: 0.004,
+  jitterInit: 1.4,
+  jitterFloor: 0.025,
+  jitterAnneal: 0.982,     // ~1.5s to hit floor at 60fps; robust to slower framerates
   drag: 0.90,
   maxSpeed: 3.6,
   // Commitment
-  commitDist: 6.0,
-  commitFrames: 40,
-  releaseDist: 14.0,
+  commitDist: 8.0,
+  commitFrames: 30,
+  releaseDist: 16.0,
   // Rendering
   vectorScale: 7,
   vectorMin: 4,
@@ -111,10 +111,14 @@ class Mind {
     this.animalId = -1;
     this.localS = CFG.spacingInit;
     this.localT = 0;
-    // per-mind identity: tint (from TINT), phase, organelle seed
+    // per-mind identity: tint, phase, organelle seed, cilia count
     this.tintIdx = hash((x * 1000) | 0, (y * 1000) | 0) % TINT.length;
     this.phase = Math.random() * Math.PI * 2;
     this.orgSeed = Math.random();
+    this.cilia = 6 + (hash((x * 13) | 0, (y * 17) | 0) % 5);
+    // birth-flash timer (frames of glow after committing)
+    this.commitFlash = 0;
+    this.bornAt = 0;
   }
 }
 
@@ -260,9 +264,20 @@ function step() {
 
   for (let i = 0; i < minds.length; i++) {
     const m = minds[i];
-    const cell = nearestCell(m.x, m.y);
-    const target = gaugeToWorld(cell.gx, cell.gy);
-    m.gx = cell.gx; m.gy = cell.gy;
+    // Hysteretic cell assignment: only re-home to a new cell if the current
+    // cell is meaningfully worse. Prevents boundary flip-flop across cells.
+    let target = gaugeToWorld(m.gx, m.gy);
+    let dCurrent = Math.hypot(target.x - m.x, target.y - m.y);
+    const needReassign = !m._assigned || dCurrent > state.gauge.s * 0.62;
+    if (needReassign && !m.committed) {
+      const cell = nearestCell(m.x, m.y);
+      if (cell.gx !== m.gx || cell.gy !== m.gy) {
+        m.gx = cell.gx; m.gy = cell.gy;
+        target = gaugeToWorld(m.gx, m.gy);
+        dCurrent = Math.hypot(target.x - m.x, target.y - m.y);
+      }
+      m._assigned = true;
+    }
 
     const snapStrength = CFG.snapK * (0.5 + 0.7 * (1 - state.jitter / CFG.jitterInit));
     let fx = (target.x - m.x) * snapStrength;
@@ -296,8 +311,14 @@ function step() {
     fx += (Math.random() - 0.5) * state.jitter;
     fy += (Math.random() - 0.5) * state.jitter;
 
-    m.vx = (m.vx + fx) * CFG.drag;
-    m.vy = (m.vy + fy) * CFG.drag;
+    // Dynamic drag: extra damping near the gauge target so minds settle
+    // instead of oscillating at their commit distance.
+    const distToTarget = Math.hypot(target.x - m.x, target.y - m.y);
+    const closeness = clamp(1 - distToTarget / (state.gauge.s * 0.3), 0, 1);
+    const drag = CFG.drag - 0.18 * closeness;   // 0.72 when at target, 0.90 far away
+
+    m.vx = (m.vx + fx) * drag;
+    m.vy = (m.vy + fy) * drag;
     const sp = Math.hypot(m.vx, m.vy);
     if (sp > CFG.maxSpeed) {
       m.vx *= CFG.maxSpeed / sp;
@@ -320,11 +341,15 @@ function step() {
     const d = Math.hypot(m.x - t.x, m.y - t.y);
     if (d < CFG.commitDist) {
       m.settle = Math.min(CFG.commitFrames, m.settle + 1);
-      if (m.settle >= CFG.commitFrames) m.committed = true;
+      if (m.settle >= CFG.commitFrames && !m.committed) {
+        m.committed = true;
+        m.commitFlash = 45;  // brief born-flash
+      }
     } else if (d > CFG.releaseDist) {
       m.settle = Math.max(0, m.settle - 2);
       if (m.settle === 0) m.committed = false;
     }
+    if (m.commitFlash > 0) m.commitFlash--;
   }
 
   const key = (gx, gy) => `${gx},${gy}`;
@@ -676,25 +701,28 @@ function drawField() {
   ctx.save();
   ctx.lineWidth = 1.05;
   ctx.lineCap = "round";
-  ctx.shadowColor = `rgba(${CREAM}, 0.4)`;
-  ctx.shadowBlur = 4;
+  ctx.shadowColor = `rgba(${CREAM}, 0.35)`;
+  ctx.shadowBlur = 3;
   for (const m of minds) {
     const sp = Math.hypot(m.vx, m.vy);
-    if (sp < 0.06) continue;
+    if (sp < 0.08) continue;
     let len = Math.max(CFG.vectorMin, Math.min(CFG.vectorMax, sp * CFG.vectorScale));
     const ux = m.vx / sp, uy = m.vy / sp;
     const ex = m.x + ux * len, ey = m.y + uy * len;
-    // color follows mind tint, dimmed
     const tint = m.committed ? CREAM : TINT[m.tintIdx];
-    ctx.strokeStyle = `rgba(${tint}, 0.7)`;
-    ctx.fillStyle = `rgba(${tint}, 0.85)`;
+    // Tapered line: start faint at the mind, brighten toward the tip.
+    const grad = ctx.createLinearGradient(m.x, m.y, ex, ey);
+    grad.addColorStop(0, `rgba(${tint}, 0.05)`);
+    grad.addColorStop(0.55, `rgba(${tint}, 0.55)`);
+    grad.addColorStop(1, `rgba(${tint}, 0.95)`);
+    ctx.strokeStyle = grad;
     ctx.beginPath();
     ctx.moveTo(m.x, m.y);
     ctx.lineTo(ex, ey);
     ctx.stroke();
-    // small tip
+    ctx.fillStyle = `rgba(${tint}, 0.9)`;
     ctx.beginPath();
-    ctx.arc(ex, ey, 1.4, 0, Math.PI * 2);
+    ctx.arc(ex, ey, 1.5, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.shadowBlur = 0;
@@ -704,29 +732,70 @@ function drawField() {
 function drawMinds() {
   const minds = state.minds;
   const t = state.frame / 60;
+  const gs = state.gauge.s;
   ctx.save();
   for (let i = 0; i < minds.length; i++) {
     const m = minds[i];
     const tint = TINT[m.tintIdx];
-    const brightness = m.animalId >= 0 ? 1 : m.committed ? 0.85 : 0.7;
-    // outer soft glow
-    ctx.shadowColor = `rgba(${m.animalId >= 0 ? CREAM : tint}, ${0.85 * brightness})`;
-    ctx.shadowBlur = m.animalId >= 0 ? 18 : 10;
-    ctx.fillStyle = `rgba(${m.animalId >= 0 ? CREAM : tint}, ${0.9 * brightness})`;
+    const isAnimal = m.animalId >= 0;
+    const brightness = isAnimal ? 1 : m.committed ? 0.85 : 0.7;
+
+    // Animal cells breathe together at a phase locked to their animalId
+    let breathScale = 1;
+    if (isAnimal) {
+      breathScale = 1 + 0.08 * Math.sin(t * 1.4 + m.animalId * 0.7);
+    }
+
+    // Cilia — soft radial hairs around each mind's cell body.
+    // Uncommitted: swaying with time and mind phase. Committed: quiet, longer, reaching outward.
+    const cilLen = m.committed ? 5.6 : 4.2;
+    const cilA = m.committed ? 0.28 : 0.18;
+    ctx.strokeStyle = `rgba(${CREAM}, ${cilA})`;
+    ctx.lineWidth = 0.65;
+    ctx.lineCap = "round";
+    for (let k = 0; k < m.cilia; k++) {
+      const base = (k / m.cilia) * Math.PI * 2;
+      const sway = m.committed ? 0 : 0.35 * Math.sin(t * 1.2 + m.phase + k);
+      const a = base + sway;
+      const r0 = 3.8 * breathScale;
+      const r1 = r0 + cilLen * (0.9 + 0.2 * Math.sin(t + k));
+      ctx.beginPath();
+      ctx.moveTo(m.x + Math.cos(a) * r0, m.y + Math.sin(a) * r0);
+      ctx.lineTo(m.x + Math.cos(a) * r1, m.y + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+
+    // Birth flash — an expanding cream ring at the moment of committing.
+    if (m.commitFlash > 0) {
+      const f = m.commitFlash / 45;
+      const ringR = (1 - f) * gs * 0.5 + 4;
+      ctx.strokeStyle = `rgba(${CREAM}, ${f * 0.9})`;
+      ctx.lineWidth = 1 + 1.2 * f;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, ringR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Outer soft glow
+    ctx.shadowColor = `rgba(${isAnimal ? CREAM : tint}, ${0.85 * brightness})`;
+    ctx.shadowBlur = isAnimal ? 18 : 10;
+    ctx.fillStyle = `rgba(${isAnimal ? CREAM : tint}, ${0.9 * brightness})`;
+    const outerR = (isAnimal ? 3.4 : 3.0) * breathScale;
     ctx.beginPath();
-    ctx.arc(m.x, m.y, m.animalId >= 0 ? 3.4 : 3.0, 0, Math.PI * 2);
+    ctx.arc(m.x, m.y, outerR, 0, Math.PI * 2);
     ctx.fill();
-    // crisp inner core
+
+    // Crisp inner core
     ctx.shadowBlur = 0;
     ctx.fillStyle = `rgba(${CREAM}, ${0.9 * brightness})`;
     ctx.beginPath();
-    ctx.arc(m.x, m.y, 1.35, 0, Math.PI * 2);
+    ctx.arc(m.x, m.y, 1.35 * breathScale, 0, Math.PI * 2);
     ctx.fill();
 
-    // Organelles orbit inside committed cells — tiny slow dots around the nucleus
+    // Organelles orbit inside committed cells
     if (m.committed) {
       const n = 3;
-      const rr = state.gauge.s * 0.22;
+      const rr = gs * 0.22;
       for (let k = 0; k < n; k++) {
         const a = m.phase * 0.35 + (k / n) * Math.PI * 2 + t * 0.15;
         const ox = m.x + Math.cos(a) * rr * (0.7 + 0.3 * Math.sin(t + k));
