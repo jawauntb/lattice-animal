@@ -1,4 +1,5 @@
 import { Delaunay } from "d3-delaunay";
+import * as audio from "/audio.js";
 
 // ─── Palette (drawn from objetd'art tissue: cool + warm, muted, luminous) ────
 const TINT = [
@@ -231,6 +232,19 @@ function nearestCell(x, y, g = state.gauge) {
 }
 function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
 
+function findLargestAnimalColor() {
+  // Tally committed minds by animal color; return the color with the most cells.
+  const counts = new Map();
+  for (const m of state.minds) {
+    if (m.animalId >= 0 && m.animalColor) {
+      counts.set(m.animalColor, (counts.get(m.animalColor) || 0) + 1);
+    }
+  }
+  let best = null, bestN = 0;
+  for (const [c, n] of counts) if (n > bestN) { best = c; bestN = n; }
+  return best;
+}
+
 // ─── Narrator ────────────────────────────────────────────────────────────────
 function narrate({ short, long, kind = "note" }) {
   // Debounce: at least 20 frames between narrations so the reader can catch each.
@@ -414,6 +428,8 @@ function trySpawn() {
   state.minds.push(child);
   // Small brief nudge in temperature so the newborn shimmers
   state.jitter = Math.max(state.jitter, 0.25);
+  const sp = voiceOf(p);
+  if (sp) audio.play(sp, "birth");
   return true;
 }
 
@@ -425,7 +441,13 @@ function tryDissolve() {
   if (candidates.length === 0) return false;
   const target = candidates[Math.floor(Math.random() * candidates.length)];
   target.dying = LIFE.dyingFrames;
+  const sp = voiceOf(target);
+  if (sp) audio.play(sp, "death");
   return true;
+}
+
+function voiceOf(m) {
+  return audio.speciesForColor(m.animalColor || m.lastAnimalColor);
 }
 
 function tryFission() {
@@ -458,6 +480,8 @@ function tryFission() {
   const dir = Math.random() * Math.PI * 2;
   m.vx += Math.cos(dir) * 2.4;
   m.vy += Math.sin(dir) * 2.4;
+  const sp = voiceOf(m);
+  if (sp) audio.play(sp, "fission");
   return true;
 }
 // ─── Narrator: sniff phase-change events and narrate them.
@@ -536,7 +560,7 @@ function detectNarrations(freshCommits) {
     }
   }
 
-  // Largest animal grows past thresholds
+  // Largest animal grows past thresholds — the biggest animal's species roars.
   const largeThresholds = [5, 10, 20, 40];
   for (const t of largeThresholds) {
     const flag = `large_${t}`;
@@ -547,6 +571,10 @@ function detectNarrations(freshCommits) {
         long: `The largest connected polyomino has grown to ${state.largestAnimal} cells. Every cell in it was placed by a mind that only ever saw its neighbors — nobody planned the shape.`,
         kind: "animal",
       });
+      // Find its species and give a full-voice call
+      const largest = findLargestAnimalColor();
+      const sp = audio.speciesForColor(largest);
+      if (sp) audio.play(sp, "growth");
     }
   }
 
@@ -562,6 +590,9 @@ function detectNarrations(freshCommits) {
         long: "A new commit sitting on an adjacent cell just bridged two separate animals — they're one body now. Watch the perimeter outline redraw itself around the union.",
         kind: "animal",
       });
+      // Voice the merger with the surviving animal's species
+      const sp = audio.speciesForColor(findLargestAnimalColor());
+      if (sp) audio.play(sp, "merger");
     }
   }
   state.prevAnimalCount = state.animalCount;
@@ -747,6 +778,12 @@ function step() {
     }
     if (m.commitFlash > 0) m.commitFlash--;
   }
+  // Voice each fresh commit softly — its animal's species (if it has one) speaks.
+  for (const m of freshCommits) {
+    const sp = audio.speciesForColor(m.animalColor || m.lastAnimalColor);
+    if (sp) audio.play(sp, "commit");
+  }
+
   // Chord interference: any freshly committed mind whose kin also committed within
   // this tick or the previous 3 gets a brighter, longer birth-flash. Truly
   // simultaneous commits are the "chord"; staggered ones remain the "arpeggio."
@@ -1110,6 +1147,7 @@ function drawBonds() {
     for (let i = 0; i < minds.length; i++) {
       const m = minds[i];
       const N = state._neighbors[i];
+      if (!N) continue;
       for (const j of N) {
         if (j <= i) continue;
         const o = minds[j];
@@ -1383,6 +1421,13 @@ function togglePause() {
   if (btn) btn.classList.toggle("active", state.paused);
 }
 function doReseed() { seed(); }
+function toggleMute() {
+  const next = !audio.isMuted();
+  audio.setMuted(next);
+  const btn = document.getElementById("btn-mute");
+  if (btn) btn.classList.toggle("active", next);
+  try { localStorage.setItem("la:muted", next ? "1" : "0"); } catch {}
+}
 
 window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
@@ -1397,7 +1442,27 @@ window.addEventListener("keydown", (e) => {
 window.__la = Object.assign(window.__la || {}, {
   togglePause,
   reseed: doReseed,
+  toggleMute,
 });
+
+// Audio needs a user gesture to start on most browsers; wire it to the first
+// pointer or key event and read any previously-saved mute preference.
+try {
+  const saved = localStorage.getItem("la:muted");
+  if (saved === "1") audio.setMuted(true);
+} catch {}
+function armAudio() {
+  audio.init();
+  audio.resume();
+  const b = document.getElementById("btn-mute");
+  if (b) b.classList.toggle("active", audio.isMuted());
+  window.removeEventListener("pointerdown", armAudio, true);
+  window.removeEventListener("keydown", armAudio, true);
+  window.removeEventListener("touchstart", armAudio, true);
+}
+window.addEventListener("pointerdown", armAudio, true);
+window.addEventListener("keydown", armAudio, true);
+window.addEventListener("touchstart", armAudio, true);
 
 // Paint interaction: click drops three minds; drag paints a trail of them
 // (respectful of gauge spacing so they don't pile up).

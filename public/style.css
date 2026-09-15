@@ -118,6 +118,10 @@ body {
 .action-btn .icon-play { display: none; }
 .action-btn.active .icon-pause { display: none; }
 .action-btn.active .icon-play { display: inline-block; }
+.action-btn .icon-muted { display: none; }
+.action-btn.active .icon-sound { display: none; }
+.action-btn.active .icon-muted { display: inline-block; }
+#btn-mute.active { color: var(--ink-faint); border-color: var(--line); }
 
 .legend .row.keys.tappable {
   display: flex;
