@@ -528,8 +528,8 @@ fission (startled), death (fading tail). Throttled per species.
 Concretely: click‑to‑isolate a single animal like a specimen, generative
 music from bond formation ("listen mode"), hover blurbs on every mind,
 per‑species voices, wander/spawn/fission/dissolve/merge as an ongoing
-ecology, and eventually — each mind's policy is a small loopable fly
-connectome subgraph so the animals *actually think*.
+ecology, and each mind's policy is a small loopable fly connectome
+subgraph so the animals actually think.
 
 ## The bro voice
 
@@ -555,8 +555,9 @@ pull from Doppler:
 - Personal keys: `jawaun-personal` shared config
 - Research keys (Modal, HF Inference, etc.): `research_derived_experiments`
 
-Nothing here currently needs a key — everything is client‑side. The
-first thing that will is the fly‑connectome inference path.
+Nothing here currently needs a key. The fly heading circuit ships as
+compiled JSON from the public neuPrint `male-cns:v1.0` API. Modal / HF
+inference is still optional if a later agent wants the full 166k graph.
 
 ## The commitment
 

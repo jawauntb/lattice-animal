@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (iter 11 — resize remap + pixel/frame budget + self-hosted Delaunay; valence / w‑max / cones / morph holes readable).
+Last updated: 2026‑09‑15 (iter 12 — stacked / looped male‑CNS heading circuit per mind).
 
 ---
 
@@ -39,6 +39,8 @@ lattice_animal/
     ├── index.html                     ← page skeleton, meta tags, modal, drawer, script glue
     ├── style.css                      ← all styling
     ├── main.js                        ← sim + rendering + interactions (the heart)
+    ├── connectome.js                  ← looped male‑CNS heading circuit
+    ├── data/fly-cx.json               ← compiled 47‑neuron / 280‑synapse motif
     ├── audio.js                       ← ten procedural species voices + mute
     ├── vendor/                        ← self-hosted d3-delaunay + delaunator + robust-predicates
     ├── site.webmanifest               ← PWA manifest
@@ -114,7 +116,8 @@ lattice_animal/
 
 Structure, top to bottom:
 
-1. **Imports** — `d3-delaunay`, `* as audio from "/audio.js"`
+1. **Imports** — `d3-delaunay`, `* as audio from "/audio.js"`,
+   `* as fly from "/connectome.js"`
 2. **Palette & verses**
    - `TINT` — 4 tissue tints for uncommitted per‑mind identity
    - `ANIMAL_HUES` — 12 hues for per‑animal identity
@@ -154,7 +157,9 @@ Structure, top to bottom:
 13. **`step()`** — the whole sim tick:
     a. Compute Delaunay + Voronoi.
     b. Each mind reads its Voronoi neighbors, updates `localS`,
-       `localT`, `nMeanX/Y`.
+       `localT`, `nMeanX/Y`. After V diffusion, `fly.stepMind`
+       loops the male‑CNS heading circuit K times and writes the
+       bump into that mind's V.
     c. Global gauge follows mean of proposals; spacing clamped tight
        to prevent collapse.
     d. Per‑mind forces: hysteretic cell assignment → snap toward
@@ -195,6 +200,15 @@ Structure, top to bottom:
     the inline HTML script to call.
 20. **Audio arm** — first pointer/key gesture initializes `audio.init()`
     and `audio.resume()`, then removes the listeners.
+
+### Fly circuit — `public/connectome.js`
+
+Loads `public/data/fly-cx.json` (Janelia `male-cns:v1.0` heading
+circuit: EPG / PEN / PEG / Delta7 / EL, 47 neurons, 280 synapses).
+Each mind gets its own voltage vector. `stepMind` injects field drive
+into species-specific sensors, loops the graph K times (dolphin 5,
+whale 2), demeans so a bump can live, and writes the readout into
+`mind.V`. `draw` paints a cream constellation on animal cells.
 
 ### Voices — `public/audio.js`
 

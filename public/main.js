@@ -1,5 +1,6 @@
 import { Delaunay } from "d3-delaunay";
 import * as audio from "/audio.js";
+import * as fly from "/connectome.js";
 
 // ─── Palette (drawn from objetd'art tissue: cool + warm, muted, luminous) ────
 const TINT = [
@@ -53,6 +54,7 @@ const VERSES = [
   "the body keeps walking after the argument is over",
   "a concern blooms, then the lattice leans toward it",
   "voltage is concern made visible",
+  "a fly circuit thinks, then the cell moves",
   "to live is to keep deciding together",
   "the vector became a scalar",
   "it doesn't decide, then check. the checking is the deciding",
@@ -1366,6 +1368,22 @@ function step() {
     else m.vStable = Math.max(0, (m.vStable || 0) - 2);
     m.prevV = m.V;
     updateValence(m, N, minds);
+    const speciesKey = audio.speciesForColor(m.animalColor || m.lastAnimalColor);
+    if (fly.ready()) {
+      const chi = sampleChi(m.x, m.y);
+      const sErr = clamp(Math.abs(m.localS - state.gauge.s) / Math.max(1e-6, state.gauge.s), 0, 1);
+      const drive = 0.50 * m.V + 0.28 * (target - m.V) + 0.14 * (chi - 1) + 0.08 * (1 - 2 * sErr);
+      fly.stepMind(m, drive, speciesKey, state.frame);
+      if (m.thought > 0.55 && state.frame - (m._thoughtAt || 0) > 240) {
+        m._thoughtAt = state.frame;
+        narrateLife({
+          short: "a circuit completed a thought",
+          long: "Forty-seven fly neurons, looped through the same heading circuit, agreed. That agreement leaked into the cell's voltage.",
+          kind: "life",
+          x: m.x, y: m.y,
+        });
+      }
+    }
     const nbMinds = N.map(j => minds[j]);
     audio.applySpeciesPolicy(m, nbMinds, { minds, frame: state.frame, emitChi });
   }
@@ -1712,6 +1730,12 @@ function render() {
   drawBonds();         // filaments between minds
   drawField();         // vector cilia
   drawMinds();         // nucleus + organelles
+  fly.draw(ctx, state.minds, {
+    frame: state.frame,
+    skipHeavy: !heavy,
+    cream: CREAM,
+    gaze: state.gaze,
+  });
   if (heavy) drawPredictiveGhosts();
   drawLoci();
   if (state.frame % 4 === 0) {
@@ -2657,6 +2681,11 @@ function tick() {
   }
   const wEl = el("t-width");
   if (wEl) wEl.textContent = state.gauge.width.toFixed(2);
+  const loopEl = el("t-loop");
+  if (loopEl) {
+    const cs = fly.stats(state.minds);
+    loopEl.textContent = cs.ready ? `${cs.k.toFixed(1)}×` : "–";
+  }
   if (state.frame % 20 === 0) updateMorphospace();
 }
 function setVerseText(text, instant) {
@@ -2836,6 +2865,7 @@ window.__la = Object.assign(window.__la || {}, {
     }
     return n;
   },
+  circuitStats() { return fly.stats(state.minds); },
   infect(i) {
     const m = state.minds[i];
     if (!m) return false;
@@ -3017,7 +3047,12 @@ function describeMind(m) {
   const speciesLine = speciesKey
     ? `<div class="tooltip-species">${species} · V ${vStr}</div>`
     : `<div class="tooltip-species">quiet species · V ${vStr}</div>`;
-  return `${speciesLine}<div class="tooltip-body">${state1} — ${state2}</div>`;
+  const k = m.circuitK || 0;
+  const thought = (m.thought || 0);
+  const circuitLine = m.circuit
+    ? `<div class="tooltip-species">fly circuit · ${k} loops · thought ${thought.toFixed(2)}</div>`
+    : "";
+  return `${speciesLine}${circuitLine}<div class="tooltip-body">${state1} — ${state2}</div>`;
 }
 function updateMindTooltip(clientX, clientY, canvasX, canvasY) {
   if (!_tooltip.el) _tooltip.el = document.getElementById("mind-tooltip");
@@ -3170,6 +3205,7 @@ function tryRestoreField() {
 // ─── Boot ────────────────────────────────────────────────────────────────────
 resize();
 if (!tryRestoreField()) seed();
+fly.load();
 renderMorphospace();
 {
   const gap = document.getElementById("btn-gap");

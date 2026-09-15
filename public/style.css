@@ -265,6 +265,10 @@ body {
 .legend .dot.bound     { background: var(--bound);     color: var(--bound); }
 .legend .dot.committed { background: var(--committed); color: var(--committed); }
 .legend .dot.animal    { background: var(--animal);    color: var(--animal); }
+.legend .dot.circuit {
+  background: transparent;
+  box-shadow: 0 0 0 1.4px rgba(242, 238, 230, 0.55), 0 0 7px rgba(150, 178, 226, 0.4);
+}
 
 /* ── Telemetry ───────────────────────────────────────────────────────── */
 .telemetry {

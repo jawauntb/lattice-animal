@@ -153,13 +153,11 @@ node scripts/build-icons.mjs
 
 ## Iteration roadmap
 
-Immediate next frontier: **stacked / looped fly connectomes**. Each mind's
-policy becomes a small circuit motif drawn from the Janelia male‑CNS
-connectome (166,700 neurons, 125M synapses, publicly available). Loop
-count *K* is the mind's cognitive budget — reflex minds run *K=1*, deeper
-minds run *K=4*. The lattice animals stop being just physical bodies and
-become populations of small brains running the same fly‑wired circuit at
-different loop depths.
+Each mind now runs a compiled heading circuit from the Janelia male CNS
+(`male-cns:v1.0` via neuPrint): 47 real neurons, 280 synapses, looped
+*K* times per tick. The bump writes into that cell's voltage. Species
+differ by which cells they listen through and how many times they loop.
+Recompile with `python3 scripts/compile-fly-cx.py`.
 
 ## Deploy
 

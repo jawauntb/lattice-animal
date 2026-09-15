@@ -330,13 +330,12 @@ building decoration. Concretely:
 
 ### Tier 4 — cosmic scale
 
-- [ ] **Stacked / looped fly connectomes** — each mind's policy is a
-      small subgraph of the Janelia male CNS connectome
-      (`gs://flyem‑male‑cns`), looped K times per tick for cognitive
-      depth. The connectome graph carries its own V dynamics that
-      feed into the demo's per‑mind V. Requires either a compiled
-      subgraph shipping as JSON, or Modal/HF inference. This is the
-      "recursive meta‑intelligence" ceiling.
+- [x] **Stacked / looped fly connectomes** — shipped 2026‑09‑15.
+      Compiled heading circuit from `male-cns:v1.0` via neuPrint
+      (47 neurons, 280 synapses, real body IDs). Each mind loops it
+      K times; the bump writes into V. Species choose sensors,
+      readouts, and K. Screenshot of the constellation on animal
+      cells, same day.
 - [ ] **Space‑warp** — GR‑animation style visible curvature of the
       background mesh where χ(x, y) peaks, so the field itself looks
       bent by the presence of a body.

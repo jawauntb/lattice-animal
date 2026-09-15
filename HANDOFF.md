@@ -116,6 +116,13 @@ regress any of these.
 - Master compressor bus; 250 ms same‑species retrigger throttle
 - Web Audio armed on first user gesture only
 
+**Fly circuit**
+- Each mind runs a compiled heading circuit from Janelia
+  `male-cns:v1.0` (47 neurons, 280 synapses, real body IDs).
+  Looped K times per tick; the bump writes into V. Species pick
+  which cells they listen through. Visible as a cream constellation
+  on animal cells. Screenshot 2026‑09‑15.
+
 **Narrator**
 - Bottom verse becomes a live narrator line in a readable glass pill
   (sits above the drawer; cream type; wraps on phones)
@@ -335,9 +342,9 @@ commit.
 
 ## Doppler / credentials
 
-Nothing currently in the repo needs a key. When you start Tier 4
-(fly connectome), pull Modal / HuggingFace / OpenRouter creds from
-Doppler:
+Nothing currently in the repo needs a key. The fly circuit is a
+compiled public neuPrint dump. If a later agent wants Modal / HF
+inference over the full 166k graph, pull creds from Doppler:
 
 - Personal: `jawaun-personal` shared config
 - Research: `research_derived_experiments`
@@ -355,8 +362,6 @@ commit that adds the implementation.
 Explicit "not done, deferred" items worth naming here so you don't
 think they exist yet on production:
 
-- **Stacked / looped fly connectomes** — Tier 4. Nothing shipped;
-  no Modal / HuggingFace / Railway‑GPU setup started.
 - **Server‑side persistent life across sessions** — Tier 4. The
   localStorage persistence *is* live; the server‑side version (where
   animals keep evolving while Jawaun is offline) is not.
@@ -368,10 +373,11 @@ think they exist yet on production:
 - **Sexual dimorphism** — Tier 2, blocked on fly‑connectome.
 - **PreText / interactive moving text** — Tier 3.5. Not started.
 - **Remaining open work** — Tier 1 / 1.5 visuals still need their
-  own screenshot before you check them. Also still open: fly
-  connectome, server-side persistent life, isolate-an-animal,
-  listen mode, space-warp, PreText, sexual dimorphism,
-  pull-to-split. (`SAVE_KEY` is `"la:field:v3"`.)
+  own screenshot before you check them. Also still open:
+  server-side persistent life, isolate-an-animal, listen mode,
+  space-warp, PreText, sexual dimorphism, pull-to-split.
+  (`SAVE_KEY` is `"la:field:v3"`.)
+  Fly connectome is shipped as a compiled `male-cns:v1.0` motif.
 - **Self-hosted Delaunay** — `public/vendor/d3-delaunay.js` plus
   `delaunator.js` and `robust-predicates.js`. No CDN on the
   hot path.
