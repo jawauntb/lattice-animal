@@ -199,23 +199,23 @@ back to one of those three, you're decorating.
 them.
 - Per‑mind V (scalar; Levin voltage / Bennett concern) — **shipped**
 - Concern field χ(x,y) as sum of Gaussians on active events — **shipped**
-- Tapestry of valence — **shipped** (`Mind.valence`, cilia channels)
-- W‑maxing gauge — **shipped** (`gauge.width`)
-- Cognitive light cones — **shipped**
-- Target morphology memory + regenerative response — **shipped**
+- Tapestry of valence — **code only, not seen**
+- W‑maxing gauge — **code only, not seen**
+- Cognitive light cones — **code only, not seen**
+- Target morphology memory + regenerative response — **code only, not seen**
 
 **Tier 1.5 (Bennett + Levin direct borrows):**
-- Species causal‑identity policies — **shipped** in `audio.js`
-- Language cancer — **shipped** (rare isolation → invasion)
-- Chord vs. arpeggio Temporal Gap toggle — **shipped**
-- Ingression from morphospace picker — **shipped**
-- 1st‑ and 2nd‑order selves — **shipped**
+- Species causal‑identity policies — **code only, not seen**
+- Language cancer — **code only, not seen**
+- Chord vs. arpeggio Temporal Gap toggle — button exists; smear not seen
+- Ingression from morphospace picker — chips exist; bias not seen
+- 1st‑ and 2nd‑order selves — **code only, not seen**
 
 **Tier 1 (direct projections of V):**
-- Domain‑wall / merge seam shimmer — **shipped**
-- Stability‑gated brightening — **shipped**
-- Anticipatory spawn glow — **shipped**
-- Moved‑bottleneck pulse — **shipped**
+- Domain‑wall / merge seam shimmer — **code only, not seen**
+- Stability‑gated brightening — **code only, not seen**
+- Anticipatory spawn glow — **code only, not seen**
+- Moved‑bottleneck pulse — **code only, not seen**
 
 **Tier 2:** tribes / relations / predation via Levin invasion phase;
 pull‑to‑split by long‑press; sexual dimorphism (post fly‑connectome)
@@ -232,15 +232,12 @@ predictive closure, objects‑from‑concern)
 
 ## Recommended first move for the next agent
 
-Tier 0 through most of Tier 1.5 is live. Next open work, if any:
+V and χ are the only new substrate you can actually see. Do not
+check another box until a screenshot shows that mechanic. Next
+visible work is still Tier 0: valence collapse, then w‑maxing,
+then light cones, then remembered shape + regen.
 
-- Isolate-an-animal (Tier 3)
-- Listen mode generative bed (Tier 3)
-- Space-warp under χ (Tier 4)
-- Server-side persistent life (Tier 4)
-- Fly connectome policies (Tier 4)
-
-Historical substrate order (all shipped):
+Historical substrate order (V and χ shipped; the rest is unverified):
 
 1. **Add `Mind.V`** — **shipped (iter 9).** Gaussian init; 0.02
    diffusion; ΔV‑gated bonds; V ring; `la:field:v2`.
@@ -341,11 +338,13 @@ think they exist yet on production:
 - **Space‑warp curvature under χ** — Tier 4. Not started.
 - **Sexual dimorphism** — Tier 2, blocked on fly‑connectome.
 - **PreText / interactive moving text** — Tier 3.5. Not started.
-- **Remaining open work** — fly connectome, server-side persistent
+- **Remaining open work** — all of Tier 0 after V/χ, plus Tier 1/1.5
+  visuals. Do not mark them shipped until a screenshot shows the
+  mechanic. Also still open: fly connectome, server-side persistent
   life, isolate-an-animal, listen mode, space-warp, PreText, sexual
   dimorphism, pull-to-split. (`SAVE_KEY` is `"la:field:v3"`.)
 - **Autodeploy** — Railway source is `jawauntb/lattice-animal@main`.
-  See `docs/railway-autodeploy.md`.
+  See `docs/railway-autodeploy.md`. That part is real.
 
 ## Contact
 

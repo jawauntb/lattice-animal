@@ -360,25 +360,20 @@ fields we haven't shipped yet. When you build them, add:
   `CFG.vRest` (0.008). Persist in `serializeField()` / `la:field:v2`.
   Render: bond opacity/width = f(1 − |ΔV|); teal/coral V ring;
   telemetry `#t-v`; hover tooltip; `window.__la.vStats()`.
-- `Mind.valence: Float32Array(7)` — **shipped.** Tapestry of valence
-  (Bennett). Dimensions: [spacing‑fit, rotation‑fit, neighbor
-  tightness, tint, cohesion, staleness, light‑cone overlap]. Cilia
-  length/hue follow [0]/[1] until commit, then collapse to the mean.
-- `Mind.lightCone: number` — **shipped.** Influence radius ≈ localS ×
-  1.5; committed cones fuse at the animal centroid.
-- `state.morphByColor` / `animalKeys[sig].memory` — **shipped.**
-  Relative offsets captured after ~90 stable frames; spawn prefers
-  missing cells after a long-press delete.
+- `Mind.valence: Float32Array(7)` — **present, not visually realized.**
+- `Mind.lightCone: number` — **present, not visually realized.**
+- `state.morphByColor` / `animalKeys[sig].memory` — **present, regen
+  not visually realized.**
 - `state.chi: Float32Array` — **shipped (iter 10).** Concern field
   χ(x, y) = 1 + Σ Aₛ exp(-r² / 2σ²), 16 px cells. Sources:
   `state.chiSources`. `rebuildChi()` each render; `sampleChi(x,y)`
   bilinear in the force loop. Local spacing = `gauge.s / χ^0.35`.
   Not persisted (1–2 s life). `drawChiField()` after ambient.
   Telemetry `#t-chi`; `window.__la.chiStats()` / `emitChi`.
-- `state.gauge.width: number` — **shipped.** Compatible‑theta width.
-  Snap hard only below 0.07. Telemetry `#t-width`.
-- `state.temporalGapMode: "chord" | "arpeggio"` — **shipped.** Button
-  `#btn-gap` / key A. Simulation unchanged; only commit-flash timing.
+- `state.gauge.width: number` — **present as telemetry.** W‑maxing
+  is not visually realized.
+- `state.temporalGapMode: "chord" | "arpeggio"` — **button exists.**
+  Arpeggio smear is not visually realized.
 
 Add each to the state shape table above when built. New render layers:
 

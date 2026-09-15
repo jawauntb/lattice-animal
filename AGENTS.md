@@ -125,6 +125,9 @@ duplicate work between agents — split by theme.
    himself to the next agent. That's why these files exist.
 6. **The Bro footer.** Always.
 
+A checkbox is a passed visual check, not a merged commit. If you
+cannot point at the mechanic on the live field, it stays `[ ]`.
+
 ## Idioms & conventions
 
 - ES modules, no build step. Everything importable from `/public/*.js`.
@@ -202,40 +205,39 @@ building decoration. Concretely:
       `gauge.s / χ^0.35`. Global `gauge.s` stays clamped. Cool
       teal/blue blooms via `drawChiField()` between ambient and dust.
 
-- [x] **Tapestry of valence on top of V** (Bennett). Shipped 2026‑09‑15.
-      `Mind.valence: Float32Array(7)` from spacing‑fit, rotation‑fit,
-      tightness, hue, cohesion, staleness, cone overlap. Cilia length
-      and hue follow the first two until commit, when the vector
-      collapses toward a single mean.
+- [ ] **Tapestry of valence on top of V** (Bennett). Code exists
+      (`Mind.valence`). Not realized: you cannot see seven concerns
+      collapse to a scalar at commit. Do not check this until a
+      screenshot shows the collapse.
 
-- [x] **W‑maxing gauge** (Bennett). Shipped 2026‑09‑15. `gauge.width`
-      tracks the compatible‑theta family. Theta only snaps hard when
-      width < 0.07. Ghost‑self rosette keeps more alts while width is
-      wide. Telemetry `width`.
+- [ ] **W‑maxing gauge** (Bennett). `gauge.width` is a telemetry
+      number. Not realized: the field does not read as a wide family
+      of compatible thetas that only snaps when the family narrows.
 
-- [x] **Cognitive light cones** (Levin, Bennett). Shipped 2026‑09‑15.
-      `drawLightCones()` after χ. Per‑mind radius ≈ localS × 1.5;
-      committed cones fuse at the animal centroid.
+- [ ] **Cognitive light cones** (Levin, Bennett). `drawLightCones()`
+      is too faint to see, and committed minds skip per‑mind cones.
+      Spec is a visible circle per mind, brighter where cones overlap.
 
-- [x] **Target morphology memory + regeneration** (Levin planarian
-      result). Shipped 2026‑09‑15. `animalKeys` stores
-      `{ color, memory, age }`; `morphByColor` keeps relative offsets
-      after ~90 stable frames. Long‑press a committed cell to take it.
-      Spawn prefers missing remembered cells; memory overwrites after
-      ~12 s of mismatch.
+- [ ] **Target morphology memory + regeneration** (Levin planarian
+      result). Long‑press delete and `morphByColor` exist. Not
+      realized: no verified moment where a damaged body grows the
+      remembered holes back.
 
 ### Tier 1 — direct projections of V
 
 - [x] **Persistence to localStorage** — shipped (2026‑09‑15 session).
-- [x] **Domain‑wall seam** — shipped. Neighboring animals shimmer by |ΔV|.
-- [x] **Stability‑gated brightening** — shipped. Cilia glow from `vStable`.
-- [x] **Anticipatory spawn glow** — shipped. Empty edge cells glow as χ rises.
-- [x] **Seam‑consistency shimmer for merges** — shipped with the domain wall.
-- [x] **Moved‑bottleneck load‑bearing pulse** — shipped. `bottleneckIdx` ring.
+- [ ] **Domain‑wall seam** — code path exists. Not seen on a two‑animal seam.
+- [ ] **Stability‑gated brightening** — `vStable` exists. Cilia do not read as a temporal ensemble.
+- [ ] **Anticipatory spawn glow** — gated on χ > 1.18. Not seen before a birth.
+- [ ] **Seam‑consistency shimmer for merges** — same as the domain wall; not seen.
+- [ ] **Moved‑bottleneck load‑bearing pulse** — `bottleneckIdx` exists. Not seen migrating.
 
 ### Tier 1.5 — Bennett & Levin direct borrows
 
-- [x] **Species = causal‑identity policy, not just hue+voice** (Bennett).
+- [ ] **Species = causal‑identity policy, not just hue+voice** (Bennett).
+      Tiny V nudges exist in `audio.js`. Not realized: species still
+      read as hue + voice. Each species must cause a visible neighbor
+      effect you can point at.
       Each species declares *what it causes* in Voronoi neighbors, not
       just how it looks/sounds. Ten policies:
       - **Lion** — depolarizes neighbors, induces fission at bond
@@ -252,7 +254,7 @@ building decoration. Concretely:
       `audio.js` (rename to `species.js` since it now carries logic
       not just voices).
 
-- [x] **Regenerative response to damage** (Levin planarian bioelectric
+- [ ] **Regenerative response to damage** (Levin planarian bioelectric
       pattern memory). When user taps and removes cells, the surviving
       cells check their shape memory (see Tier 0) and preferentially
       spawn into the missing relative offsets, until the pattern is
@@ -260,7 +262,7 @@ building decoration. Concretely:
       Never let a damaged animal simply dissolve — it *tries* to
       reform first.
 
-- [x] **Language cancer** (Bennett + Davies & Levin). A mind whose V
+- [ ] **Language cancer** (Bennett + Davies & Levin). A mind whose V
       drifts too far from its neighbors' mean for too long becomes
       "isolated from the informational structure of its collective."
       It then depolarizes further (positive feedback), cuts existing
@@ -269,21 +271,21 @@ building decoration. Concretely:
       event; visually renders as a mind that goes dark, then bright,
       then contagious.
 
-- [x] **Chord vs. arpeggio toggle (the Temporal Gap, Bennett).** A
+- [ ] **Chord vs. arpeggio toggle (the Temporal Gap, Bennett).** A
       button that switches how the demo renders the exact same
       underlying state: chord mode fires commits at an instant (as we
       already do); arpeggio mode smears each commit across N ticks,
       making it visible that the "moment" is a construction. Do not
       change the simulation — only its rendering.
 
-- [x] **Ingression from morphospace** (Levin). Show a small persistent
+- [ ] **Ingression from morphospace** (Levin). Show a small persistent
       panel at the bottom of the drawer listing the polyomino
       morphospace (P‑pentomino, L‑tetromino, T‑tetromino, S‑tetromino,
       hexominos…) with which shapes the current animals are pointers
       to. Tapping one biases the spawn dynamics toward that
       inhabitant of the latent space.
 
-- [x] **1st‑order‑self / 2nd‑order‑self** (Bennett). Mature animals
+- [ ] **1st‑order‑self / 2nd‑order‑self** (Bennett). Mature animals
       (size ≥ 8, age ≥ 30 s) develop a 2nd‑order‑self: they predict
       what their neighbor animals will do next tick, and pre‑adjust.
       Rendered as a faint predictive ghost of the neighbor animal
@@ -358,9 +360,10 @@ building decoration. Concretely:
 
 ### Tier 5 — copy and framing (very cheap, high leverage)
 
-- [x] **Vector‑to‑scalar collapse caption** — shipped in `VERSES`.
-- [x] **Predictive‑closure caption** — shipped in `VERSES`.
-- [x] **Objects‑from‑concern caption** — shipped in `VERSES`.
+- [ ] **Vector‑to‑scalar collapse caption** — lines sit in `VERSES`.
+      Not realized: they do not fire at the moment of commit.
+- [ ] **Predictive‑closure caption** — same; not tied to the check.
+- [ ] **Objects‑from‑concern caption** — same; not tied to a commit cluster.
 
 ## When you don't know what to do
 

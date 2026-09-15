@@ -214,22 +214,25 @@ lattice is a pointer to.
 The two papers together expose ten interaction patterns and features the
 demo needs but doesn't have:
 
-1. **Causal‑identity per species** (Bennett) — shipped. Ten policies in
-   `audio.js` nudge neighbor V, spawn bias, scan rate, and chatter.
-2. **Cognitive light cones** (Levin, Bennett) — shipped as
-   `drawLightCones()`.
-3. **Target morphology memory** (Levin) — shipped as `{ color, memory }`
-   plus `morphByColor`.
-4. **Regenerative response to damage** (Levin) — shipped. Long‑press
-   deletes; spawn prefers remembered holes.
-5. **W‑maxing gauge** (Bennett) — shipped as `gauge.width`.
-6. **Tapestry of valence** (Bennett) — shipped as `Mind.valence[7]`.
-7. **Temporal gap** (Bennett) — shipped. Chord / arpeggio button (A).
-8. **2nd‑order‑self** (Bennett) — shipped. Mature animals ghost toward
-   a neighbor; young ones ghost their own next step.
-9. **Platonic morphospace UI** (Levin) — shipped in the narrator drawer.
-10. **Cell/organ hierarchy** (Levin scale ladder) — still open. Only
-    mind and animal exist; organelle, tissue, ecology are missing scales.
+1. **No causal‑identity per species** (Bennett). Ten tiny V nudges exist.
+   Species still read as hue and voice.
+2. **No visible cognitive light cones** (Levin, Bennett). The draw call
+   is too faint to show what a mind can influence.
+3. **No seen target morphology memory** (Levin). Storage exists; the
+   remembered shape is not visible.
+4. **No seen regenerative response** (Levin). Long‑press can delete.
+   Reforming the remembered holes has not been shown.
+5. **W‑maxing not visible** (Bennett). `gauge.width` is a number, not a
+   readable family of compatible thetas.
+6. **Tapestry of valence not visible** (Bennett). `Mind.valence` exists.
+   The collapse at commit has not been shown.
+7. **No temporal gap visualization** (Bennett). A chord/arpeggio button
+   exists. The smear across ticks has not been shown.
+8. **No visible 2nd‑order‑self** (Bennett). Ghost dots are too faint.
+9. **Morphospace chips exist** (Levin). They do not yet show which
+   inhabitant the current animals are pointers to, and bias is unproven.
+10. **No cell/organ hierarchy** (Levin scale ladder). Only mind and animal
+    exist; organelle, tissue, ecology are missing scales.
 
 Each gap is an entry in the AGENTS.md Ideas Queue with a proposed
 implementation direction.

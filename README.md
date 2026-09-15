@@ -36,12 +36,8 @@ Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
   dissolve, merge, and wherever you drop minds. Nearby cells tighten
   their spacing; the shared grid itself does not collapse. Telemetry
   `χ` is the peak of that field.
-- **Light cones** — faint cool circles of influence. Committed cones
-  fuse into the animal's awareness.
-- **Valence threads** — seven tiny hairs on an uncommitted mind, one
-  per concern. They collapse toward a single length at commit.
-- **Remembered holes** — after a long‑press delete, ghost rings sit
-  where the body still wants a cell.
+- **Light cones / valence / remembered holes** — code is in. They are
+  not yet visible enough to count as part of the watching.
 - **Birth flash rings** — expanding cream rings when a mind commits. When
   multiple minds commit within the same tick, their rings amplify into a
   brighter *chord* burst (Mind‑Cannot‑Smear‑Across‑Time).
