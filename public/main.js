@@ -39,9 +39,9 @@ const CFG = {
   drag: 0.90,
   maxSpeed: 3.6,
   // Commitment
-  commitDist: 8.0,
-  commitFrames: 30,
-  releaseDist: 16.0,
+  commitDist: 12.0,
+  commitFrames: 24,
+  releaseDist: 22.0,
   // Rendering
   vectorScale: 7,
   vectorMin: 4,
@@ -311,11 +311,14 @@ function step() {
     fx += (Math.random() - 0.5) * state.jitter;
     fy += (Math.random() - 0.5) * state.jitter;
 
-    // Dynamic drag: extra damping near the gauge target so minds settle
-    // instead of oscillating at their commit distance.
+    // PD control: velocity damping cures the overshoot that keeps minds
+    // bouncing outside the commit window near their targets.
     const distToTarget = Math.hypot(target.x - m.x, target.y - m.y);
-    const closeness = clamp(1 - distToTarget / (state.gauge.s * 0.3), 0, 1);
-    const drag = CFG.drag - 0.18 * closeness;   // 0.72 when at target, 0.90 far away
+    const closeness = clamp(1 - distToTarget / (state.gauge.s * 0.4), 0, 1);
+    const velDamp = 0.10 + 0.30 * closeness;  // 0.10 far away, 0.40 at target
+    fx -= m.vx * velDamp;
+    fy -= m.vy * velDamp;
+    const drag = CFG.drag - 0.12 * closeness;
 
     m.vx = (m.vx + fx) * drag;
     m.vy = (m.vy + fy) * drag;
@@ -877,6 +880,8 @@ canvas.addEventListener("pointerleave", () => { state.mouse.inside = false; });
 resize();
 seed();
 requestAnimationFrame(frame);
+
+
 
 // Some Chrome UI (debug bars, download bars) shifts viewport without firing
 // resize. Poll size and re-fit if it changed.
