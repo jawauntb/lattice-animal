@@ -213,6 +213,10 @@ function remapField(oldW, oldH, newW, newH) {
     loc.x *= sx;
     loc.y *= sy;
   }
+  if (state.gaze) {
+    state.gaze.x *= sx;
+    state.gaze.y *= sy;
+  }
   for (const e of state.narration.history) {
     if (Number.isFinite(e.x)) e.x *= sx;
     if (Number.isFinite(e.y)) e.y *= sy;
@@ -308,6 +312,7 @@ const state = {
   perf: { lastMs: 0, skipHeavy: false, streak: 0 },
   loci: [],                 // narrator marks on the field { x, y, short, kind, born, id }
   locusId: 0,
+  gaze: null,               // { x, y, born, kind } — the field leans toward the verse
 };
 
 // hash → integer in [0, n)
@@ -570,6 +575,7 @@ function seed(count = CFG.seedCount) {
   state.narration.lastLifeFrame = -1000;
   state.chiSources.length = 0;
   state.loci.length = 0;
+  state.gaze = null;
   renderLocusPins();
   state.chi = null;
   state.chiW = 0;
@@ -747,6 +753,28 @@ function simToClient(x, y) {
   };
 }
 
+function locusTint(kind) {
+  if (kind === "chord") return CREAM;
+  if (kind === "animal") return "255, 209, 92";
+  if (kind === "life") return "134, 186, 168";
+  return "150, 178, 226";
+}
+
+function verseAnchorSim() {
+  const v = document.getElementById("verse-btn");
+  if (!v) return { x: W * 0.5, y: H - 36 };
+  const r = v.getBoundingClientRect();
+  return clientToSim(r.left + r.width * 0.5, r.top + 6);
+}
+
+function hearVerse() {
+  const btn = document.getElementById("verse-btn");
+  if (!btn) return;
+  btn.classList.add("hearing");
+  clearTimeout(hearVerse._t);
+  hearVerse._t = setTimeout(() => btn.classList.remove("hearing"), 1600);
+}
+
 function showLocus(entry) {
   if (!Number.isFinite(entry.x) || !Number.isFinite(entry.y)) return;
   const loc = {
@@ -757,9 +785,12 @@ function showLocus(entry) {
     kind: entry.kind,
     born: state.frame,
   };
-  state.loci = state.loci.filter(l => state.frame - l.born < 200);
+  state.loci = state.loci.filter(l => state.frame - l.born < 220);
   state.loci.unshift(loc);
-  if (state.loci.length > 3) state.loci.length = 3;
+  if (state.loci.length > 2) state.loci.length = 2;
+  state.gaze = { x: loc.x, y: loc.y, born: state.frame, kind: loc.kind };
+  emitChi(loc.x, loc.y, 0.32, 52);
+  hearVerse();
   renderLocusPins();
 }
 
@@ -772,17 +803,15 @@ function pulseLocus(entry) {
 function renderLocusPins() {
   const host = document.getElementById("narrator-loci");
   if (!host) return;
-  const life = 200;
-  host.innerHTML = state.loci.map((loc, i) => {
-    const age = state.frame - loc.born;
-    if (age > life) return "";
-    const pos = simToClient(loc.x, loc.y);
-    const dim = i > 0 ? " dim" : "";
-    return `<div class="narrator-pin${dim}" data-id="${loc.id}" style="left:${pos.left}px;top:${pos.top}px">
-      <span class="pin-ring" aria-hidden="true"></span>
-      <span class="pin-label">${escapeHtml(loc.short)}</span>
-    </div>`;
-  }).join("");
+  const loc = state.loci[0];
+  if (!loc || state.frame - loc.born > 220) {
+    host.innerHTML = "";
+    return;
+  }
+  const pos = simToClient(loc.x, loc.y);
+  host.innerHTML = `<div class="narrator-pin" data-id="${loc.id}" style="left:${pos.left}px;top:${pos.top + 26}px">
+    <span class="pin-label">${escapeHtml(loc.short)}</span>
+  </div>`;
 }
 
 function narrateLife({ short, long, kind = "life", x, y }) {
@@ -798,7 +827,7 @@ function narrate({ short, long, kind = "note", x, y }) {
   const at = locateNarration(x, y);
   state.narration.lastNarratedFrame = state.frame;
   state.narration.current = short;
-  setVerseText(short);
+  setVerseText(short, true);
   const entry = {
     frame: state.frame, short, long, kind,
     ts: Date.now(),
@@ -839,7 +868,7 @@ function renderDrawerLog() {
       const entry = state.narration.history[i];
       if (pulseLocus(entry)) {
         btn.classList.add("fresh");
-        setVerseText(entry.short);
+        setVerseText(entry.short, true);
       }
     });
   });
@@ -1686,7 +1715,7 @@ function render() {
   if (heavy) drawPredictiveGhosts();
   drawLoci();
   if (state.frame % 4 === 0) {
-    state.loci = state.loci.filter(l => state.frame - l.born < 200);
+    state.loci = state.loci.filter(l => state.frame - l.born < 220);
     renderLocusPins();
   }
 }
@@ -1694,23 +1723,80 @@ function render() {
 function drawLoci() {
   if (!state.loci.length) return;
   ctx.save();
-  for (let i = 0; i < state.loci.length; i++) {
-    const loc = state.loci[i];
-    const age = state.frame - loc.born;
-    if (age > 200) continue;
-    const t = 1 - age / 200;
-    const r = 12 + age * 0.28;
-    ctx.strokeStyle = `rgba(${CREAM}, ${0.18 + 0.62 * t * (i === 0 ? 1 : 0.45)})`;
-    ctx.lineWidth = i === 0 ? 1.7 : 1.1;
-    ctx.setLineDash(i === 0 ? [] : [3, 4]);
+  const loc = state.loci[0];
+  const age = state.frame - loc.born;
+  const t = clamp(1 - age / 220, 0, 1);
+  const arrive = clamp(age / 16, 0, 1);
+  const tint = locusTint(loc.kind);
+  const reach = Math.max(W, H) * 0.92;
+
+  // A hush: the rest of the field falls back so this moment can be seen.
+  const hush = ctx.createRadialGradient(loc.x, loc.y, 36, loc.x, loc.y, reach);
+  hush.addColorStop(0, "rgba(0,0,0,0)");
+  hush.addColorStop(0.38, `rgba(6, 8, 16, ${0.10 * t})`);
+  hush.addColorStop(1, `rgba(6, 8, 16, ${0.46 * t})`);
+  ctx.fillStyle = hush;
+  ctx.fillRect(0, 0, W, H);
+
+  // Well of attention — cool, never a second warm body.
+  const well = ctx.createRadialGradient(loc.x, loc.y, 0, loc.x, loc.y, 120);
+  well.addColorStop(0, `rgba(${CREAM}, ${0.22 * t})`);
+  well.addColorStop(0.32, `rgba(${tint}, ${0.14 * t})`);
+  well.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = well;
+  ctx.beginPath();
+  ctx.arc(loc.x, loc.y, 120, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Interference rings — the moment arriving.
+  for (let k = 0; k < 3; k++) {
+    const r = (12 + age * 0.32 + k * 18) * arrive;
+    ctx.strokeStyle = `rgba(${k === 0 ? CREAM : tint}, ${t * (0.78 - k * 0.18)})`;
+    ctx.lineWidth = k === 0 ? 1.9 : 1.2;
     ctx.beginPath();
     ctx.arc(loc.x, loc.y, r, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = `rgba(${CREAM}, ${0.28 + 0.4 * t})`;
+  }
+  ctx.fillStyle = `rgba(${CREAM}, ${0.85 * t})`;
+  ctx.beginPath();
+  ctx.arc(loc.x, loc.y, 3.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = `rgba(${CREAM}, ${0.7 * t})`;
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(loc.x - 5, loc.y);
+  ctx.lineTo(loc.x + 5, loc.y);
+  ctx.moveTo(loc.x, loc.y - 5);
+  ctx.lineTo(loc.x, loc.y + 5);
+  ctx.stroke();
+
+  // A hair of light from the verse to the event — this is why it said this.
+  const from = verseAnchorSim();
+  const mx = (from.x + loc.x) * 0.5;
+  const my = Math.min(from.y, loc.y) - 48;
+  ctx.strokeStyle = `rgba(${tint}, ${0.28 + 0.48 * t})`;
+  ctx.lineWidth = 1.45;
+  ctx.setLineDash([5, 7]);
+  ctx.lineDashOffset = -state.frame * 0.7;
+  ctx.shadowColor = `rgba(${tint}, ${0.35 * t})`;
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.quadraticCurveTo(mx, my, loc.x, loc.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+
+  // Residual ring of the previous moment, already forgetting.
+  const prev = state.loci[1];
+  if (prev) {
+    const pa = state.frame - prev.born;
+    const pt = clamp(1 - pa / 220, 0, 1);
+    ctx.strokeStyle = `rgba(${CREAM}, ${0.12 * pt})`;
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(loc.x, loc.y, 2.6, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(prev.x, prev.y, 18 + pa * 0.2, 0, Math.PI * 2);
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -2005,6 +2091,10 @@ function drawMembranes() {
     if (!poly) continue;
     let alpha = m.committed ? CFG.membraneAlphaCommitted : CFG.membraneAlpha;
     alpha *= b;
+    if (state.gaze && state.frame - state.gaze.born < 160) {
+      const gd = Math.hypot(m.x - state.gaze.x, m.y - state.gaze.y);
+      if (gd < 150) alpha *= 1 + (1 - gd / 150) * 0.55 * (1 - (state.frame - state.gaze.born) / 160);
+    }
     // lens: warm cells near the pointer slightly brighter
     if (state.mouse.inside) {
       const d = Math.hypot(m.x - mx, m.y - my);
@@ -2560,11 +2650,19 @@ function tick() {
   if (wEl) wEl.textContent = state.gauge.width.toFixed(2);
   if (state.frame % 20 === 0) updateMorphospace();
 }
-function setVerseText(text) {
+function setVerseText(text, instant) {
   const v = document.getElementById("verse");
   if (!v) return;
+  clearTimeout(setVerseText._t);
+  if (instant) {
+    v.style.transition = "none";
+    v.style.opacity = 1;
+    v.textContent = text;
+    requestAnimationFrame(() => { v.style.transition = ""; });
+    return;
+  }
   v.style.opacity = 0;
-  setTimeout(() => {
+  setVerseText._t = setTimeout(() => {
     v.textContent = text;
     v.style.opacity = 1;
   }, 800);
