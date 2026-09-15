@@ -6,6 +6,33 @@
 <meta name="theme-color" content="#05060a" />
 <title>Lattice Animal — a body made of minds</title>
 <meta name="description" content="A living tessellation where independent cell-minds find each other through movement alone and form a shared body. For CIMC's Lattice Animals hackathon." />
+
+<!-- Favicons and app icons -->
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+
+<!-- Open Graph / social preview -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Lattice Animal — a body made of minds">
+<meta property="og:description" content="A hundred small minds try to become a single body without ever talking to each other. Watch it happen.">
+<meta property="og:image" content="https://latticeanimal-production.up.railway.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A small polyomino of five glowing cells connected by warm gold bonds on a cosmic dark ground, next to the title Lattice Animal — a body made of minds.">
+<meta property="og:url" content="https://latticeanimal-production.up.railway.app/">
+<meta property="og:site_name" content="Lattice Animal">
+
+<!-- Twitter card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Lattice Animal — a body made of minds">
+<meta name="twitter:description" content="A hundred small minds try to become a single body without ever talking to each other. Watch it happen.">
+<meta name="twitter:image" content="https://latticeanimal-production.up.railway.app/og-image.png">
+<meta name="twitter:image:alt" content="A small polyomino of five glowing cells connected by warm gold bonds on a cosmic dark ground.">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
@@ -19,8 +46,19 @@
       <span class="glyph">◇</span>
       <span class="title">Lattice Animal</span>
     </div>
-    <div class="epigraph" aria-hidden="true">
-      a body made of minds &nbsp;·&nbsp; agreement by position, commitment by movement
+    <div class="top-cluster">
+      <div class="epigraph" aria-hidden="true">
+        a body made of minds &nbsp;·&nbsp; agreement by position, commitment by movement
+      </div>
+      <div class="action-cluster" role="group" aria-label="Simulation controls">
+        <button class="action-btn" id="btn-pause" aria-label="Pause or resume" title="Pause / resume (space)">
+          <svg class="icon-pause" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
+          <svg class="icon-play" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+        </button>
+        <button class="action-btn" id="btn-reseed" aria-label="Reseed the field" title="Reseed a fresh field (R)">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7c3.31 0 6 2.69 6 6a6 6 0 1 1-11.66-2h-2.09A8 8 0 1 0 12 5z" fill="currentColor"/></svg>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -36,12 +74,10 @@
       <span><b>animal</b> — 2+ committed minds bonded 4‑adjacent</span></div>
     <div class="sep"></div>
     <div class="section-title">controls</div>
-    <div class="row keys"><kbd>space</kbd><span>pause</span></div>
-    <div class="row keys"><kbd>R</kbd><span>reseed the field</span></div>
-    <div class="row keys"><kbd>V</kbd><span>toggle voronoi</span></div>
-    <div class="row keys"><kbd>F</kbd><span>toggle vector field</span></div>
-    <div class="row keys"><kbd>G</kbd><span>toggle ghost lattice</span></div>
-    <div class="row keys"><kbd>click</kbd><span>drop three minds here</span></div>
+    <button class="row keys tappable" data-action="pause"><kbd>space</kbd><span>pause / resume</span></button>
+    <button class="row keys tappable" data-action="reseed"><kbd>R</kbd><span>reseed a fresh field</span></button>
+    <div class="row keys"><kbd>tap</kbd><span>drop three minds here</span></div>
+    <div class="row keys"><kbd>drag</kbd><span>paint a trail of minds</span></div>
   </aside>
 
   <aside class="chrome telemetry" id="telemetry" aria-label="Telemetry">
@@ -53,12 +89,33 @@
   </aside>
 
   <footer class="chrome bottom">
-    <div class="verse" id="verse">
-      no channel but movement · no commitment but position
-    </div>
     <button class="info-btn" id="info-btn" aria-haspopup="dialog" aria-controls="info-modal" aria-label="What is this?">?</button>
+    <button class="verse-btn" id="verse-btn" aria-expanded="false" aria-controls="narrator-drawer" aria-label="Expand narrator">
+      <span class="verse" id="verse">the field is being born</span>
+      <span class="chevron" aria-hidden="true">▲</span>
+    </button>
     <button class="menu-btn" id="menu-btn" aria-controls="legend telemetry" aria-label="Show legend and telemetry">⌇</button>
   </footer>
+
+  <aside class="narrator-drawer" id="narrator-drawer" hidden aria-label="What's happening in the field">
+    <div class="drawer-inner">
+      <div class="drawer-header">
+        <div class="drawer-title">what's happening in the field</div>
+        <button class="drawer-close" id="drawer-close" aria-label="Close narrator">▼</button>
+      </div>
+      <p class="drawer-intro">
+        You're watching a hundred small minds try to become a single body
+        without ever talking to each other. Everything they can do is move;
+        everything they can see is where their nearest neighbors are. Over
+        about half a minute they negotiate a shared grid, lock into it one at
+        a time, and connect into small polyominos — those are the
+        <em>lattice animals</em>.
+      </p>
+      <div class="drawer-log" id="drawer-log">
+        <div class="drawer-log-empty">no events yet — the field is warming up.</div>
+      </div>
+    </div>
+  </aside>
 
   <div class="modal-scrim" id="modal-scrim" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" id="info-modal">
@@ -162,6 +219,40 @@
       menuBtn.addEventListener('click', () => {
         const on = document.body.classList.toggle('chrome-open');
         menuBtn.setAttribute('aria-expanded', String(on));
+      });
+
+      // Simulation action buttons — always available on any device
+      function fireAction(name) {
+        if (!window.__la) return;
+        if (name === 'pause') window.__la.togglePause();
+        if (name === 'reseed') window.__la.reseed();
+      }
+      document.getElementById('btn-pause').addEventListener('click', () => fireAction('pause'));
+      document.getElementById('btn-reseed').addEventListener('click', () => fireAction('reseed'));
+      document.querySelectorAll('.tappable[data-action]').forEach((el) => {
+        el.addEventListener('click', () => fireAction(el.dataset.action));
+      });
+
+      // Narrator drawer
+      const drawer = document.getElementById('narrator-drawer');
+      const verseBtn = document.getElementById('verse-btn');
+      const drawerClose = document.getElementById('drawer-close');
+      function openDrawer() {
+        drawer.hidden = false;
+        requestAnimationFrame(() => drawer.classList.add('on'));
+        verseBtn.setAttribute('aria-expanded', 'true');
+      }
+      function closeDrawer() {
+        drawer.classList.remove('on');
+        verseBtn.setAttribute('aria-expanded', 'false');
+        setTimeout(() => { drawer.hidden = true; }, 260);
+      }
+      verseBtn.addEventListener('click', () => {
+        if (drawer.hidden) openDrawer(); else closeDrawer();
+      });
+      drawerClose.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !drawer.hidden) closeDrawer();
       });
     })();
   </script>
