@@ -322,9 +322,12 @@
         verseBtn.setAttribute('aria-expanded', 'false');
         setTimeout(() => { drawer.hidden = true; }, 260);
       }
-      verseBtn.addEventListener('click', () => {
+      verseBtn.addEventListener('click', (e) => {
         if (window.__la && window.__la.pulseCurrentLocus) window.__la.pulseCurrentLocus();
-        if (drawer.hidden) openDrawer(); else closeDrawer();
+        const wantsLog = e.target.closest('.chevron') || !drawer.hidden;
+        if (wantsLog) {
+          if (drawer.hidden) openDrawer(); else closeDrawer();
+        }
       });
       drawerClose.addEventListener('click', closeDrawer);
       document.addEventListener('keydown', (e) => {

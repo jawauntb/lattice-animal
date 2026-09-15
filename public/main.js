@@ -1726,60 +1726,68 @@ function drawLoci() {
   const loc = state.loci[0];
   const age = state.frame - loc.born;
   const t = clamp(1 - age / 220, 0, 1);
-  const arrive = clamp(age / 16, 0, 1);
   const tint = locusTint(loc.kind);
-  const reach = Math.max(W, H) * 0.92;
+  const reach = Math.max(W, H) * 0.96;
 
-  // A hush: the rest of the field falls back so this moment can be seen.
-  const hush = ctx.createRadialGradient(loc.x, loc.y, 36, loc.x, loc.y, reach);
-  hush.addColorStop(0, "rgba(0,0,0,0)");
-  hush.addColorStop(0.38, `rgba(6, 8, 16, ${0.10 * t})`);
-  hush.addColorStop(1, `rgba(6, 8, 16, ${0.46 * t})`);
+  // Multiply-hush: the night itself leans away so this cell can be read.
+  ctx.globalCompositeOperation = "multiply";
+  const hush = ctx.createRadialGradient(loc.x, loc.y, 22, loc.x, loc.y, reach);
+  hush.addColorStop(0, "rgb(255,255,255)");
+  hush.addColorStop(0.2, `rgb(${240 - 18 * t}, ${242 - 16 * t}, ${250 - 10 * t})`);
+  hush.addColorStop(1, `rgb(${150 - 28 * t}, ${152 - 24 * t}, ${172 - 16 * t})`);
   ctx.fillStyle = hush;
   ctx.fillRect(0, 0, W, H);
 
-  // Well of attention — cool, never a second warm body.
-  const well = ctx.createRadialGradient(loc.x, loc.y, 0, loc.x, loc.y, 120);
-  well.addColorStop(0, `rgba(${CREAM}, ${0.22 * t})`);
-  well.addColorStop(0.32, `rgba(${tint}, ${0.14 * t})`);
+  // Well of attention — additive, cool, never a second warm body.
+  ctx.globalCompositeOperation = "lighter";
+  const well = ctx.createRadialGradient(loc.x, loc.y, 0, loc.x, loc.y, 168);
+  well.addColorStop(0, `rgba(${CREAM}, ${0.28 * t})`);
+  well.addColorStop(0.28, `rgba(${tint}, ${0.16 * t})`);
   well.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = well;
   ctx.beginPath();
-  ctx.arc(loc.x, loc.y, 120, 0, Math.PI * 2);
+  ctx.arc(loc.x, loc.y, 168, 0, Math.PI * 2);
   ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
 
-  // Interference rings — the moment arriving.
+  // Interference rings — a stone in water, visible on the first frame.
   for (let k = 0; k < 3; k++) {
-    const r = (12 + age * 0.32 + k * 18) * arrive;
-    ctx.strokeStyle = `rgba(${k === 0 ? CREAM : tint}, ${t * (0.78 - k * 0.18)})`;
-    ctx.lineWidth = k === 0 ? 1.9 : 1.2;
+    const r = 26 + age * 0.9 + k * 30;
+    ctx.strokeStyle = `rgba(${k === 0 ? CREAM : tint}, ${t * (0.92 - k * 0.22)})`;
+    ctx.lineWidth = k === 0 ? 2.15 : 1.25;
     ctx.beginPath();
     ctx.arc(loc.x, loc.y, r, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.fillStyle = `rgba(${CREAM}, ${0.85 * t})`;
+  ctx.fillStyle = `rgba(${CREAM}, ${0.92 * t})`;
   ctx.beginPath();
-  ctx.arc(loc.x, loc.y, 3.1, 0, Math.PI * 2);
+  ctx.arc(loc.x, loc.y, 3.4, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = `rgba(${CREAM}, ${0.7 * t})`;
-  ctx.lineWidth = 1.1;
+  ctx.strokeStyle = `rgba(${CREAM}, ${0.82 * t})`;
+  ctx.lineWidth = 1.15;
   ctx.beginPath();
-  ctx.moveTo(loc.x - 5, loc.y);
-  ctx.lineTo(loc.x + 5, loc.y);
-  ctx.moveTo(loc.x, loc.y - 5);
-  ctx.lineTo(loc.x, loc.y + 5);
+  ctx.moveTo(loc.x - 9, loc.y);
+  ctx.lineTo(loc.x + 9, loc.y);
+  ctx.moveTo(loc.x, loc.y - 9);
+  ctx.lineTo(loc.x, loc.y + 9);
   ctx.stroke();
 
   // A hair of light from the verse to the event — this is why it said this.
   const from = verseAnchorSim();
   const mx = (from.x + loc.x) * 0.5;
-  const my = Math.min(from.y, loc.y) - 48;
-  ctx.strokeStyle = `rgba(${tint}, ${0.28 + 0.48 * t})`;
-  ctx.lineWidth = 1.45;
+  const my = Math.min(from.y, loc.y) - 56;
+  ctx.strokeStyle = `rgba(${tint}, ${0.16 + 0.22 * t})`;
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.quadraticCurveTo(mx, my, loc.x, loc.y);
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(${tint}, ${0.42 + 0.5 * t})`;
+  ctx.lineWidth = 1.35;
   ctx.setLineDash([5, 7]);
   ctx.lineDashOffset = -state.frame * 0.7;
-  ctx.shadowColor = `rgba(${tint}, ${0.35 * t})`;
-  ctx.shadowBlur = 8;
+  ctx.shadowColor = `rgba(${tint}, ${0.45 * t})`;
+  ctx.shadowBlur = 10;
   ctx.beginPath();
   ctx.moveTo(from.x, from.y);
   ctx.quadraticCurveTo(mx, my, loc.x, loc.y);
@@ -1787,15 +1795,14 @@ function drawLoci() {
   ctx.setLineDash([]);
   ctx.shadowBlur = 0;
 
-  // Residual ring of the previous moment, already forgetting.
   const prev = state.loci[1];
   if (prev) {
     const pa = state.frame - prev.born;
     const pt = clamp(1 - pa / 220, 0, 1);
-    ctx.strokeStyle = `rgba(${CREAM}, ${0.12 * pt})`;
+    ctx.strokeStyle = `rgba(${CREAM}, ${0.16 * pt})`;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(prev.x, prev.y, 18 + pa * 0.2, 0, Math.PI * 2);
+    ctx.arc(prev.x, prev.y, 22 + pa * 0.22, 0, Math.PI * 2);
     ctx.stroke();
   }
   ctx.restore();
@@ -2093,7 +2100,9 @@ function drawMembranes() {
     alpha *= b;
     if (state.gaze && state.frame - state.gaze.born < 160) {
       const gd = Math.hypot(m.x - state.gaze.x, m.y - state.gaze.y);
-      if (gd < 150) alpha *= 1 + (1 - gd / 150) * 0.55 * (1 - (state.frame - state.gaze.born) / 160);
+      const gt = 1 - (state.frame - state.gaze.born) / 160;
+      if (gd < 160) alpha *= 1 + (1 - gd / 160) * 0.85 * gt;
+      else alpha *= 1 - 0.42 * gt;
     }
     // lens: warm cells near the pointer slightly brighter
     if (state.mouse.inside) {
