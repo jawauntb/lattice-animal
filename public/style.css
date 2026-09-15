@@ -49,6 +49,50 @@ body {
   touch-action: none;
 }
 
+.narrator-loci {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.narrator-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  max-width: min(240px, 62vw);
+}
+.narrator-pin.dim { opacity: 0.42; }
+.narrator-pin .pin-ring {
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid rgba(242, 238, 230, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 16px rgba(150, 178, 226, 0.45);
+  animation: pin-pulse 1.5s ease-out infinite;
+}
+.narrator-pin .pin-label {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-size: 12.5px;
+  font-variation-settings: "opsz" 24;
+  line-height: 1.3;
+  color: var(--cream);
+  background: rgba(10, 12, 22, 0.74);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 5px 11px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+@keyframes pin-pulse {
+  0% { transform: scale(0.72); opacity: 1; }
+  100% { transform: scale(2.15); opacity: 0; }
+}
+
 .field-notice {
   position: fixed;
   top: calc(var(--safe-top) + 62px);
@@ -469,10 +513,24 @@ body {
 .morph-chip.on { color: var(--cream); border-color: var(--bound); background: rgba(255,209,92,0.08); }
 .morph-chip.in { box-shadow: 0 0 0 1px rgba(132, 176, 255, 0.55) inset; }
 .log-entry {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   padding: 10px 12px 10px 14px;
+  border: 0;
   border-left: 1px solid var(--line);
   margin-bottom: 8px;
-  transition: border-color 300ms ease;
+  cursor: pointer;
+  border-radius: 0 8px 8px 0;
+  transition: border-color 300ms ease, background 160ms ease;
+}
+.log-entry.has-locus:hover,
+.log-entry.has-locus:focus-visible {
+  background: rgba(150, 178, 226, 0.08);
+  border-left-color: var(--bound);
 }
 .log-entry.fresh { border-left-color: var(--bound); }
 .log-entry.chord { border-left-color: var(--committed); }

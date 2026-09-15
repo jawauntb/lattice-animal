@@ -44,6 +44,7 @@
 <body>
   <canvas id="stage"></canvas>
   <div class="field-notice" id="field-notice" hidden role="status" aria-live="polite"></div>
+  <div class="narrator-loci" id="narrator-loci" aria-hidden="true"></div>
   <div class="mind-tooltip" id="mind-tooltip" hidden aria-live="polite"></div>
 
   <header class="chrome top">
@@ -127,6 +128,7 @@
         a time, and connect into small polyominos — those are the
         <em>lattice animals</em>. After they lock, the story does not stop:
         they wander, birth, split, and join, and this log keeps speaking.
+        Tap a line to see the place on the field that made it true.
       </p>
       <div class="drawer-log" id="drawer-log">
         <div class="drawer-log-empty">no events yet — the field is warming up.</div>
@@ -202,6 +204,9 @@
         <li><strong>Remembered holes</strong> — dashed cells where a damaged
           animal still wants to sit someone. The body tries to grow those
           squares back.</li>
+        <li><strong>Narrator pin</strong> — when the verse names an event, a
+          cream mark sits on the field at the place that made it true. Tap
+          a line in the log to see it again.</li>
         <li><strong>Cream outline</strong> — the perimeter of a lattice animal.</li>
         <li><strong>Cosmic dust &amp; twinkles</strong> — the medium the minds
           drift through, drawn from the objetd'art <em>stars</em> vibe.</li>
@@ -318,6 +323,7 @@
         setTimeout(() => { drawer.hidden = true; }, 260);
       }
       verseBtn.addEventListener('click', () => {
+        if (window.__la && window.__la.pulseCurrentLocus) window.__la.pulseCurrentLocus();
         if (drawer.hidden) openDrawer(); else closeDrawer();
       });
       drawerClose.addEventListener('click', closeDrawer);

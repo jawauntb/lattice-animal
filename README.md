@@ -47,6 +47,9 @@ Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
 - **If the field has to shrink** to stay snappy on a phone, a
   small notice says so. Delaunay is served from this site, not a
   CDN.
+- **Narrator pins** — when the verse names an event, a cream
+  mark sits on the field at that place. Tap a log line to see
+  it again.
 - **Birth flash rings** — expanding cream rings when a mind commits. When
   multiple minds commit within the same tick, their rings amplify into a
   brighter *chord* burst (Mind‑Cannot‑Smear‑Across‑Time).

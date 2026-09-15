@@ -209,7 +209,16 @@ function remapField(oldW, oldH, newW, newH) {
     s.cx *= sx;
     s.cy *= sy;
   }
+  for (const loc of state.loci || []) {
+    loc.x *= sx;
+    loc.y *= sy;
+  }
+  for (const e of state.narration.history) {
+    if (Number.isFinite(e.x)) e.x *= sx;
+    if (Number.isFinite(e.y)) e.y *= sy;
+  }
   state.chi = null;
+  renderLocusPins();
 }
 
 function clientToSim(clientX, clientY) {
@@ -297,6 +306,8 @@ const state = {
   chiH: 0,
   chiSources: [],           // { cx, cy, amp, sigma, decay }
   perf: { lastMs: 0, skipHeavy: false, streak: 0 },
+  loci: [],                 // narrator marks on the field { x, y, short, kind, born, id }
+  locusId: 0,
 };
 
 // hash → integer in [0, n)
@@ -558,6 +569,8 @@ function seed(count = CFG.seedCount) {
   state.narration.lastNarratedFrame = -1000;
   state.narration.lastLifeFrame = -1000;
   state.chiSources.length = 0;
+  state.loci.length = 0;
+  renderLocusPins();
   state.chi = null;
   state.chiW = 0;
   state.chiH = 0;
@@ -702,24 +715,98 @@ function findLargestAnimalColor() {
 }
 
 // ─── Narrator ────────────────────────────────────────────────────────────────
-function narrateLife({ short, long, kind = "life" }) {
+function mindsCentroid(pred) {
+  let x = 0, y = 0, n = 0;
+  for (const m of state.minds) {
+    if (pred && !pred(m)) continue;
+    x += m.x; y += m.y; n++;
+  }
+  if (n) return { x: x / n, y: y / n };
+  return { x: state.gauge.cx, y: state.gauge.cy };
+}
+
+function locateNarration(x, y) {
+  if (Number.isFinite(x) && Number.isFinite(y)) return { x, y };
+  if (state.chiSources.length) {
+    const s = state.chiSources[state.chiSources.length - 1];
+    return { x: s.cx, y: s.cy };
+  }
+  const flashing = mindsCentroid(m => m.commitFlash > 0 || m.collapse > 0);
+  if (state.minds.some(m => m.commitFlash > 0 || m.collapse > 0)) return flashing;
+  if (state.animalCount > 0) return mindsCentroid(m => m.animalId >= 0);
+  return mindsCentroid();
+}
+
+function simToClient(x, y) {
+  const rect = canvas.getBoundingClientRect();
+  const rw = rect.width || viewW || 1;
+  const rh = rect.height || viewH || 1;
+  return {
+    left: rect.left + x * (rw / (W || 1)),
+    top: rect.top + y * (rh / (H || 1)),
+  };
+}
+
+function showLocus(entry) {
+  if (!Number.isFinite(entry.x) || !Number.isFinite(entry.y)) return;
+  const loc = {
+    id: ++state.locusId,
+    x: entry.x,
+    y: entry.y,
+    short: entry.short,
+    kind: entry.kind,
+    born: state.frame,
+  };
+  state.loci = state.loci.filter(l => state.frame - l.born < 200);
+  state.loci.unshift(loc);
+  if (state.loci.length > 3) state.loci.length = 3;
+  renderLocusPins();
+}
+
+function pulseLocus(entry) {
+  if (!entry || !Number.isFinite(entry.x)) return false;
+  showLocus({ ...entry, born: state.frame });
+  return true;
+}
+
+function renderLocusPins() {
+  const host = document.getElementById("narrator-loci");
+  if (!host) return;
+  const life = 200;
+  host.innerHTML = state.loci.map((loc, i) => {
+    const age = state.frame - loc.born;
+    if (age > life) return "";
+    const pos = simToClient(loc.x, loc.y);
+    const dim = i > 0 ? " dim" : "";
+    return `<div class="narrator-pin${dim}" data-id="${loc.id}" style="left:${pos.left}px;top:${pos.top}px">
+      <span class="pin-ring" aria-hidden="true"></span>
+      <span class="pin-label">${escapeHtml(loc.short)}</span>
+    </div>`;
+  }).join("");
+}
+
+function narrateLife({ short, long, kind = "life", x, y }) {
   // Living events are frequent. Keep them readable: one every few seconds.
   if (state.frame - (state.narration.lastLifeFrame || -1e9) < 60 * 2.6) return;
   state.narration.lastLifeFrame = state.frame;
-  narrate({ short, long, kind });
+  narrate({ short, long, kind, x, y });
 }
 
-function narrate({ short, long, kind = "note" }) {
+function narrate({ short, long, kind = "note", x, y }) {
   // Debounce: at least 20 frames between narrations so the reader can catch each.
   if (state.frame - state.narration.lastNarratedFrame < 20) return;
+  const at = locateNarration(x, y);
   state.narration.lastNarratedFrame = state.frame;
   state.narration.current = short;
   setVerseText(short);
-  state.narration.history.unshift({
+  const entry = {
     frame: state.frame, short, long, kind,
     ts: Date.now(),
-  });
+    x: at.x, y: at.y,
+  };
+  state.narration.history.unshift(entry);
   if (state.narration.history.length > 60) state.narration.history.length = 60;
+  showLocus(entry);
   renderDrawerLog();
 }
 
@@ -739,13 +826,23 @@ function renderDrawerLog() {
     return;
   }
   const html = hist.map((e, i) => `
-    <div class="log-entry ${i === 0 ? "fresh " : ""}${e.kind}">
+    <button type="button" class="log-entry ${i === 0 ? "fresh " : ""}${e.kind}${Number.isFinite(e.x) ? " has-locus" : ""}" data-locus="${i}">
       <div class="log-short">${escapeHtml(e.short)}</div>
       <div class="log-long">${escapeHtml(e.long)}</div>
-      <div class="log-time">${fmtTime(e.frame)}</div>
-    </div>
+      <div class="log-time">${fmtTime(e.frame)}${Number.isFinite(e.x) ? " · on the field" : ""}</div>
+    </button>
   `).join("");
   el.innerHTML = html;
+  el.querySelectorAll("[data-locus]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = +btn.dataset.locus;
+      const entry = state.narration.history[i];
+      if (pulseLocus(entry)) {
+        btn.classList.add("fresh");
+        setVerseText(entry.short);
+      }
+    });
+  });
 }
 
 function escapeHtml(s) {
@@ -791,10 +888,12 @@ function updateLivingPhase() {
   // Enter the living phase once the field is settled OR enough time has passed.
   if (!state.narration.flags.living && (frac > 0.85 || state.frame > 60 * 22)) {
     state.narration.flags.living = true;
+    const live = mindsCentroid(m => m.animalId >= 0);
     narrate({
       short: "the field has come alive",
       long: "The negotiation is over. From here nothing is scripted — the animals wander, birth new minds at their edges, occasionally split when they've grown too large, and re-merge when they drift into each other. The invariant is that every configuration is still a real lattice animal.",
       kind: "note",
+      x: live.x, y: live.y,
     });
   }
   if (!state.narration.flags.living) return;
@@ -876,6 +975,7 @@ function tryWander() {
       short: "a body took a single step",
       long: "An edge cell released its hold and reached for the empty square beside it. That is a walk, one lattice step at a time.",
       kind: "life",
+      x: t.x, y: t.y,
     });
   }
   return true;
@@ -917,6 +1017,7 @@ function trySpawn() {
       ? "Damage left a hole in the remembered shape. The surviving cells asked a mind to sit where the pattern still wanted a body."
       : "The animal asked an empty cell to host someone. The child inherited a color and a resting voltage, and now it has to earn the grid.",
     kind: "life",
+    x: child.x, y: child.y,
   });
   return true;
 }
@@ -936,6 +1037,7 @@ function tryDissolve() {
     short: "a drifting mind is fading",
     long: "It never found a cell it could keep. The field is letting it go so the remaining bodies can breathe.",
     kind: "life",
+    x: target.x, y: target.y,
   });
   return true;
 }
@@ -981,6 +1083,7 @@ function tryFission() {
     short: "a body divided along a thin neck",
     long: "A bridge cell let go. One animal is becoming two, and each half will try to remember a shape.",
     kind: "life",
+    x: m.x, y: m.y,
   });
   return true;
 }
@@ -994,10 +1097,12 @@ function detectNarrations(freshCommits) {
   // Genesis — first frame
   if (state.frame === 1 && !n.flags.genesis) {
     n.flags.genesis = true;
+    const at = mindsCentroid();
     narrate({
       short: "the field is being born",
       long: "A hundred minds have just materialized. None of them can talk to each other. All they can do is move — and all they can see is where their nearest neighbors are. Watch the arrows: those are the directions they want to go.",
       kind: "note",
+      x: at.x, y: at.y,
     });
   }
 
@@ -1008,50 +1113,64 @@ function detectNarrations(freshCommits) {
       short: "a shared 'up' is emerging",
       long: "The random shaking is dying down. From nothing but neighbor positions, the field is agreeing on a spacing and an orientation — a shared grid nobody drew. That's the gauge being negotiated.",
       kind: "note",
+      x: state.gauge.cx, y: state.gauge.cy,
     });
   }
 
   // First commit — one mind stopped moving
   if (!n.flags.checking && state.minds.some(m => !m.committed && m.settle > 8)) {
     n.flags.checking = true;
+    const checker = state.minds.find(m => !m.committed && m.settle > 8);
     narrate({
       short: "it doesn't decide, then check. the checking is the deciding",
       long: "A mind is staying near a cell and counting. That count is the decision. There is no later moment where it approves what it already did.",
       kind: "note",
+      x: checker ? checker.x : state.gauge.cx,
+      y: checker ? checker.y : state.gauge.cy,
     });
   }
 
   if (!n.flags.first_commit && committed >= 1) {
     n.flags.first_commit = true;
+    const first = state.minds.find(m => m.committed);
     narrate({
       short: "the vector became a scalar",
       long: "Seven concerns were still open. Then the mind stayed, and they folded into one fact: this cell.",
       kind: "note",
+      x: first ? first.x : state.gauge.cx,
+      y: first ? first.y : state.gauge.cy,
     });
   }
 
   // Chord events — three or more simultaneous commits near each other
   if (freshCommits && freshCommits.length >= 3) {
+    let cx = 0, cy = 0;
+    for (const m of freshCommits) { cx += m.x; cy += m.y; }
     narrate({
       short: `a chord: ${freshCommits.length} minds committed together`,
       long: `${freshCommits.length} minds locked in at the same instant. Nobody coordinated the timing — they were just all ready together. In the theory this matters: consciousness papers argue a bound moment requires true co-instantiation, not staggered pieces. You just watched one.`,
       kind: "chord",
+      x: cx / freshCommits.length, y: cy / freshCommits.length,
     });
   } else if (freshCommits && freshCommits.length === 2) {
     narrate({
       short: "two minds committed at the same instant",
       long: "A chord, if you're keeping count — two commitments in the same tick. Not many at once yet, but the pace is picking up.",
       kind: "chord",
+      x: (freshCommits[0].x + freshCommits[1].x) * 0.5,
+      y: (freshCommits[0].y + freshCommits[1].y) * 0.5,
     });
   }
 
   // First animal — a lattice animal has formed
   if (!n.flags.first_animal && state.animalCount >= 1) {
     n.flags.first_animal = true;
+    const body = mindsCentroid(m => m.animalId >= 0);
     narrate({
       short: "the shape is not what it looks like. it's what commits together",
       long: "Two committed minds are now sitting on 4-adjacent cells of the shared grid. Together they count as an animal — the smallest possible body. Watch the warm filament that just appeared between them: that's the bond.",
       kind: "animal",
+      x: body.x, y: body.y,
     });
   }
 
@@ -1065,7 +1184,8 @@ function detectNarrations(freshCommits) {
   for (const [thresh, flag, short, long] of milestones) {
     if (!n.flags[flag] && fracCommitted >= thresh) {
       n.flags[flag] = true;
-      narrate({ short, long, kind: "note" });
+      const at = mindsCentroid(m => m.committed);
+      narrate({ short, long, kind: "note", x: at.x, y: at.y });
     }
   }
 
@@ -1075,10 +1195,12 @@ function detectNarrations(freshCommits) {
     const flag = `large_${t}`;
     if (!n.flags[flag] && state.largestAnimal >= t) {
       n.flags[flag] = true;
+      const big = mindsCentroid(m => m.animalColor === findLargestAnimalColor());
       narrate({
         short: `the biggest animal is now ${state.largestAnimal} cells wide`,
         long: `The largest connected polyomino has grown to ${state.largestAnimal} cells. Every cell in it was placed by a mind that only ever saw its neighbors — nobody planned the shape.`,
         kind: "animal",
+        x: big.x, y: big.y,
       });
       // Find its species and give a full-voice call
       const largest = findLargestAnimalColor();
@@ -1092,12 +1214,14 @@ function detectNarrations(freshCommits) {
   if (state.frame > 60 && state.animalCount < prevA && committed >= prevC && state.animalCount > 0) {
     const merged = prevA - state.animalCount;
     if (merged >= 1) {
+      const seam = mindsCentroid(m => m.animalId >= 0);
       narrate({
         short: merged === 1
           ? "two animals merged into one"
           : `${merged + 1} animals merged into fewer`,
         long: "A new commit sitting on an adjacent cell just bridged two separate animals — they're one body now. Watch the perimeter outline redraw itself around the union.",
         kind: "animal",
+        x: seam.x, y: seam.y,
       });
       // Voice the merger with the surviving animal's species
       const sp = audio.speciesForColor(findLargestAnimalColor());
@@ -1194,6 +1318,7 @@ function step() {
           short: "a mind left the informational structure",
           long: "Its voltage drifted too far from the body for too long. Isolated, it depolarized and began to speak a language the others could not use.",
           kind: "life",
+          x: m.x, y: m.y,
         });
       }
     }
@@ -1516,7 +1641,8 @@ function step() {
   if (state.narration.flags.living && framesSinceNarration > 60 * 11) {
     const pulse = LIFE_PULSE[state.verseIndex % LIFE_PULSE.length];
     state.verseIndex++;
-    narrate({ short: pulse.short, long: pulse.long, kind: "life" });
+    const here = mindsCentroid(m => m.animalId >= 0);
+    narrate({ short: pulse.short, long: pulse.long, kind: "life", x: here.x, y: here.y });
   } else if (!state.narration.flags.living && framesSinceNarration > 60 * 10 && state.verseTimer > 60 * 8) {
     state.verseTimer = 0;
     state.verseIndex = (state.verseIndex + 1) % VERSES.length;
@@ -1558,6 +1684,35 @@ function render() {
   drawField();         // vector cilia
   drawMinds();         // nucleus + organelles
   if (heavy) drawPredictiveGhosts();
+  drawLoci();
+  if (state.frame % 4 === 0) {
+    state.loci = state.loci.filter(l => state.frame - l.born < 200);
+    renderLocusPins();
+  }
+}
+
+function drawLoci() {
+  if (!state.loci.length) return;
+  ctx.save();
+  for (let i = 0; i < state.loci.length; i++) {
+    const loc = state.loci[i];
+    const age = state.frame - loc.born;
+    if (age > 200) continue;
+    const t = 1 - age / 200;
+    const r = 12 + age * 0.28;
+    ctx.strokeStyle = `rgba(${CREAM}, ${0.18 + 0.62 * t * (i === 0 ? 1 : 0.45)})`;
+    ctx.lineWidth = i === 0 ? 1.7 : 1.1;
+    ctx.setLineDash(i === 0 ? [] : [3, 4]);
+    ctx.beginPath();
+    ctx.arc(loc.x, loc.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = `rgba(${CREAM}, ${0.28 + 0.4 * t})`;
+    ctx.beginPath();
+    ctx.arc(loc.x, loc.y, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 function drawAmbient() {
@@ -2528,6 +2683,10 @@ window.__la = Object.assign(window.__la || {}, {
   },
   emitChi,
   rememberAnimal,
+  pulseCurrentLocus() {
+    return pulseLocus(state.narration.history[0]);
+  },
+  pulseLocus,
   clientToSim,
   noteBlowup,
   budget: BUDGET,
@@ -2655,6 +2814,7 @@ canvas.addEventListener("pointerdown", (e) => {
         short: "a cell was taken. the body remembers",
         long: "The remaining minds still hold the shape. They will try to sit someone in the missing square before they accept a new form.",
         kind: "life",
+        x: m.x, y: m.y,
       });
     }, CFG.holdMs);
   } else {
@@ -2685,6 +2845,7 @@ canvas.addEventListener("pointermove", (e) => {
           short: "you drew a trail of minds",
           long: "They only know they were placed. The rest is the same work as everyone else: see neighbors, propose a gauge, try to stay.",
           kind: "life",
+          x, y,
         });
       }
     }
@@ -2885,8 +3046,15 @@ function tryRestoreField() {
       state.narration.history = data.narration.history || [];
       state.narration.flags = data.narration.flags || {};
       state.narration.lastNarratedFrame = data.narration.lastNarratedFrame || -1000;
+      for (const e of state.narration.history) {
+        if (Number.isFinite(e.x)) e.x *= sx;
+        if (Number.isFinite(e.y)) e.y *= sy;
+      }
       renderDrawerLog();
-      if (state.narration.history[0]) setVerseText(state.narration.history[0].short);
+      if (state.narration.history[0]) {
+        setVerseText(state.narration.history[0].short);
+        pulseLocus(state.narration.history[0]);
+      }
     }
     return true;
   } catch (e) { return false; }

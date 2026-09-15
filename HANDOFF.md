@@ -119,6 +119,9 @@ regress any of these.
 **Narrator**
 - Bottom verse becomes a live narrator line in a readable glass pill
   (sits above the drawer; cream type; wraps on phones)
+- Each spoken event drops a cream pin on the field at the place
+  that made it true. The log lines are tappable; the verse
+  button re-lights the latest pin. Screenshot 2026‑09‑15.
 - Living-phase narration never goes quiet: spawn / wander / fission /
   dissolve / merge, plus a pulse every ~11 s if the ecology is merely
   holding. Drag-painting a trail also speaks once per stroke.

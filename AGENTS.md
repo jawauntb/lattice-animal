@@ -310,6 +310,10 @@ building decoration. Concretely:
 
 ### Tier 3 — perception and interaction UI
 
+- [x] **Narrator locates the event.** Each spoken line drops a cream
+      pin on the field at the mind / body / seam that made it true.
+      Drawer lines are tappable; the verse button re-lights the
+      latest pin. Shipped 2026‑09‑15.
 - [ ] **Click / tap an animal to isolate it.** Camera zooms and
       centers, other animals dim, side panel shows the isolated
       animal's real‑time V field, species, cell count, recent events,
