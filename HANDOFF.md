@@ -121,8 +121,9 @@ regress any of these.
   (sits above the drawer; cream type; wraps on phones)
 - Each spoken event hushes the rest of the field, opens a cool
   well of light at the place that made it true, and draws a hair
-  from the verse to that cell. Log lines are tappable; the verse
-  button re-lights the latest pin. Screenshot 2026‑09‑15.
+  from the verse to that cell. Log lines are tappable. Tapping the
+  verse hears the place again without covering it; the chevron
+  opens the drawer. Screenshot 2026‑09‑15.
 - Living-phase narration never goes quiet: spawn / wander / fission /
   dissolve / merge, plus a pulse every ~11 s if the ecology is merely
   holding. Drag-painting a trail also speaks once per stroke.

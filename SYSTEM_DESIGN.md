@@ -83,8 +83,10 @@ lattice_animal/
     and `/vendor/robust-predicates.js`). `main.js` is `type="module"`
   - `.field-notice` — glass toast when the sim is scaled or a
     heavy frame is dropped
-  - `#narrator-loci` — cream pins that sit on the event the
-    verse is naming; drawer log lines re-light them
+  - `#narrator-loci` — glass label on the event the verse is
+    naming. `drawLoci()` hushes the field, opens a cool well,
+    and draws a hair from the verse. Verse tap re-hears the
+    place; the chevron opens the drawer.
   - Bottom inline `<script>` wires all button click / drawer /
     modal / M‑key logic. Talks to `main.js` through `window.__la`.
 
