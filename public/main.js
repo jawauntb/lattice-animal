@@ -43,6 +43,8 @@ const VERSES = [
   "voltage matches, and a bond remembers how to open",
   "the body keeps walking after the argument is over",
   "a concern blooms, then the lattice leans toward it",
+  "voltage is concern made visible",
+  "to live is to keep deciding together",
 ];
 
 const LIFE_PULSE = [
@@ -77,6 +79,14 @@ const LIFE_PULSE = [
   {
     short: "the field has not gone quiet",
     long: "Stillness on the grid is not silence. The animals are holding a form while they decide whether to grow, walk, or divide.",
+  },
+  {
+    short: "voltage drifts through bonds",
+    long: "Each mind is tuning toward its neighbors. A slow consensus, with no words.",
+  },
+  {
+    short: "the concern rises gently",
+    long: "Activity blooms in one place and the lattice leans toward it. That lean is the field paying attention.",
   },
 ];
 

@@ -61,48 +61,86 @@ export function resume() {
 export function setMuted(v) { muted = !!v; }
 export function isMuted() { return muted; }
 
-// Glass grains for a finger dragging across the field. Pentatonic, quiet,
-// overlapping — a cilia shimmer, not a whoosh. x picks the pitch; speed
-// picks how hard the grain speaks. iOS needs the existing ctx (armed on
-// first gesture) and a resume() on every stroke.
+// Stir / touch: a dragged finger stirs the medium. x chooses a minor
+// pentatonic rung; speed opens amplitude. Grains glide off the last
+// pitch so one stroke reads as glass on water, not separate notes.
+let lastStirFreq = 0;
+let lastStirAt = 0;
+const STIR_ROOT = 440;
+const STIR_SEMIS = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24];
+
+function stirIndex(xNorm) {
+  return Math.round(clamp01(xNorm) * (STIR_SEMIS.length - 1));
+}
+function stirFreq(xNorm) {
+  return STIR_ROOT * Math.pow(2, STIR_SEMIS[stirIndex(xNorm)] / 12);
+}
+
 export function playStir({ xNorm = 0.5, speedNorm = 0.4 } = {}) {
   if (!ctx || muted) return;
   const now = performance.now();
-  if (now - (lastPlayTs.get("stir") || 0) < 78) return;
+  if (now - (lastPlayTs.get("stir") || 0) < 90) return;
   lastPlayTs.set("stir", now);
-  const scale = [392.00, 440.00, 523.25, 587.33, 659.25, 783.99];
-  const idx = Math.round(clamp01(xNorm) * (scale.length - 1));
-  const f = scale[idx];
-  const sc = 0.15 + 0.24 * clamp01(speedNorm);
+
+  const v = clamp01(speedNorm);
+  const sc = 0.18 + 0.17 * v;
+  const f = stirFreq(xNorm);
   const t = ctx.currentTime;
-  const o = osc("sine", f);
-  const o2 = osc("triangle", f * 2.01);
-  const filter = lpf(1650, 0.8);
+  const legato = lastStirFreq > 0 && now - lastStirAt < 420;
+  lastStirAt = now;
+
+  const o = osc("sine", legato ? lastStirFreq : f * 0.94);
+  o.frequency.exponentialRampToValueAtTime(f, t + (legato ? 0.05 : 0.035));
   const g = gain(0);
-  o.connect(filter); o2.connect(filter); filter.connect(g);
-  g.gain.linearRampToValueAtTime(0.28 * sc, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
-  o.start(t); o.stop(t + 0.21);
-  o2.start(t); o2.stop(t + 0.16);
+  o.connect(g);
+  g.gain.linearRampToValueAtTime(0.5 * sc, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+  o.start(t); o.stop(t + 0.4);
+
+  const lfo = osc("sine", 5.6);
+  const lg = ctx.createGain(); lg.gain.value = f * 0.0035;
+  lfo.connect(lg); lg.connect(o.frequency);
+  lfo.start(t); lfo.stop(t + 0.34);
+
+  const oh = osc("sine", f * 2);
+  const gh = gain(0);
+  oh.connect(gh);
+  gh.gain.linearRampToValueAtTime(0.16 * sc, t + 0.02);
+  gh.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  oh.start(t); oh.stop(t + 0.26);
+
+  const og = osc("sine", f * 2.76);
+  const gg = gain(0);
+  og.connect(gg);
+  gg.gain.linearRampToValueAtTime(0.10 * sc * (0.2 + 0.8 * v), t + 0.006);
+  gg.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+  og.start(t); og.stop(t + 0.16);
+
+  lastStirFreq = f;
 }
 
 export function playTouch(xNorm = 0.5) {
   if (!ctx || muted) return;
   const now = performance.now();
-  if (now - (lastPlayTs.get("touch") || 0) < 140) return;
+  if (now - (lastPlayTs.get("touch") || 0) < 90) return;
   lastPlayTs.set("touch", now);
-  const scale = [523.25, 659.25, 783.99];
+
+  const base = stirIndex(xNorm);
   const t = ctx.currentTime;
-  const root = scale[Math.round(clamp01(xNorm) * (scale.length - 1))];
-  for (let i = 0; i < 2; i++) {
-    const o = osc("sine", root * (i ? 1.498 : 1));
-    const filter = lpf(1900, 0.6);
+  const sc = 0.28;
+  const rungs = [-2, 0, 2];
+  for (let i = 0; i < rungs.length; i++) {
+    const idx = Math.min(STIR_SEMIS.length - 1, Math.max(0, base + rungs[i]));
+    const f = STIR_ROOT * Math.pow(2, STIR_SEMIS[idx] / 12);
+    const s = t + i * 0.045;
+    const o = osc("sine", f * 0.62);
+    o.frequency.setValueAtTime(f * 0.62, s);
+    o.frequency.exponentialRampToValueAtTime(f, s + 0.03);
     const g = gain(0);
-    o.connect(filter); filter.connect(g);
-    const s = t + i * 0.03;
-    g.gain.linearRampToValueAtTime(0.16, s + 0.012);
-    g.gain.exponentialRampToValueAtTime(0.001, s + 0.32);
-    o.start(s); o.stop(s + 0.34);
+    o.connect(g);
+    g.gain.linearRampToValueAtTime(0.34 * sc, s + 0.014);
+    g.gain.exponentialRampToValueAtTime(0.001, s + 0.17);
+    o.start(s); o.stop(s + 0.2);
   }
 }
 
