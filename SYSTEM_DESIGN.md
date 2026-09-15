@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (Session 4, iter 8 — third research pass: Levin "Ingressing Minds" + Bennett "How to Build Conscious Machines").
+Last updated: 2026‑09‑15 (iter 9 — per‑mind V substrate: diffusion, ΔV‑gated bonds, V ring, `la:field:v2`).
 
 ---
 
@@ -191,9 +191,12 @@ Structure, top to bottom:
 
 Small module. Public API:
 
-- `SPECIES` — 10 species with `key` and `rgb` (matched to `ANIMAL_HUES`)
+- `SPECIES` — 10 species with `key`, `rgb` (matched to `ANIMAL_HUES`),
+  and `restingV` in [−1, 1] (Levin membrane band: whale −0.70 …
+  lion +0.70)
 - `speciesForColor(rgb)` — returns the species key, or `null` for the
   two quiet hues (rose + ember)
+- `restingVForColor(rgb)` — species resting V, or 0 for quiet / unknown
 - `init()`, `resume()`, `setMuted(bool)`, `isMuted()`, `play(speciesKey,
   event)` — event ∈ {birth, commit, growth, merger, fission, death}
 - Internal helpers: `osc`, `gain`, `lpf`, `bpf`
@@ -254,7 +257,7 @@ The tooltip and telemetry read from `state` but don't mutate it.
 state = {
   minds: [Mind, ...],                 // grows/shrinks via spawn/dissolve/paint
   dust: [...], twinkles: [...],       // cosmos
-  gauge: { cx, cy, theta, s },        // shared grid
+  gauge: { cx, cy, theta, s },        // shared grid (s still frozen/clamped)
   jitter, paused,
   showVoronoi, showField, showGhost,  // toggles (hidden keyboard shortcuts)
   frame, mouse,
@@ -276,6 +279,7 @@ Mind = {
   tintIdx, phase, orgSeed, cilia,
   commitFlash, commitChord, bornAt,
   spawnedAt, dying,
+  V, restingV,                        // voltage / concern; persist in la:field:v2
 }
 ```
 
@@ -343,10 +347,13 @@ domain` and returned https URL.
 Almost every idea in the ideas queue projects out of these new state
 fields we haven't shipped yet. When you build them, add:
 
-- `Mind.V: number` — voltage/concern scalar in ~[-1, 1] initialized
-  from a Gaussian centered on the species' resting V. Each frame
-  diffuses toward `mean(V of committed Voronoi neighbors)` with a
-  small rate ~0.02. Include in `serializeField()`.
+- `Mind.V: number` — **shipped (iter 9).** Voltage/concern in [-1, 1].
+  Gaussian init around 0; `restingV` from `audio.restingVForColor`
+  once a species color is inherited. Diffuses toward mean committed
+  neighbor V at `CFG.vDiffuse` (0.02); isolated minds use
+  `CFG.vRest` (0.008). Persist in `serializeField()` / `la:field:v2`.
+  Render: bond opacity/width = f(1 − |ΔV|); teal/coral V ring;
+  telemetry `#t-v`; hover tooltip; `window.__la.vStats()`.
 - `Mind.valence: Float32Array(7)` — the tapestry of valence
   (Bennett). Dimensions: [spacing‑fit, rotation‑fit, neighbor
   tightness, tint, cohesion, staleness, light‑cone overlap]. Fed by

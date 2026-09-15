@@ -51,6 +51,14 @@ regress any of these.
   velocity arrow (DVFP dual‑vector display)
 - Living phase after ~85 % committed: wander, spawn, fission,
   dissolve, merge, slow gauge breath
+- Per‑mind V (voltage / concern scalar in [−1, 1]): Gaussian init
+  around 0, then around species resting V once a color is inherited.
+  Diffuses toward the mean V of committed Voronoi neighbors at 0.02
+  per frame (0.008 toward resting V when isolated). Does **not**
+  gate commit yet.
+- Bond opacity + width = f(1 − |ΔV|) — Levin voltage‑gated
+  gap junctions. Matched‑V bonds stay open; large drops dim shut.
+- Teal / coral V ring on every mind (sign × magnitude)
 
 **Persistence**
 - `localStorage` snapshot every 5 s, on tab hide, and on
@@ -58,6 +66,7 @@ regress any of these.
   up to 3 days
 - Rescaled to new viewport on restore
 - `R` (reseed) clears the save
+- Schema `la:field:v2` — persists `V` and `restingV`; v1 caches rejected
 - Visibility restore forces resize + immediate render so the tab
   doesn't sit blank while rAF ramps back up
 
@@ -127,7 +136,7 @@ regress any of these.
   working directory
 - Monitor deploy: `Monitor` tool with an `until` loop polling
   `railway deployment list --json`
-- Iter counter is at 8 (7 code deploys + 1 doc‑only)
+- Iter counter is at 9 (8 code deploys + 1 doc‑only)
 
 ## Documentation on `main`
 
@@ -178,7 +187,7 @@ back to one of those three, you're decorating.
 
 **Tier 0: substrate.** Build these first — everything else lands on
 them.
-- Per‑mind V (scalar; Levin voltage / Bennett concern)
+- Per‑mind V (scalar; Levin voltage / Bennett concern) — **shipped**
 - Concern field χ(x,y) as sum of Gaussians on active events
 - Tapestry of valence (7‑dim vector on top of V; collapses at commit)
 - W‑maxing gauge (compatible‑theta distribution, not single mean)
@@ -217,10 +226,8 @@ predictive closure, objects‑from‑concern)
 Build **Tier 0 substrate** in this order (each is a discrete
 mergeable commit):
 
-1. **Add `Mind.V`** — Gaussian init around species resting V; diffuses
-   toward committed‑neighbors mean at rate ~0.02 per frame. Bond
-   opacity = f(1 − |ΔV|). Do not yet gate commit on V — just render.
-   Ship + verify visually + commit + push.
+1. **Add `Mind.V`** — **shipped (iter 9).** Gaussian init; 0.02
+   diffusion; ΔV‑gated bonds; V ring; `la:field:v2`.
 2. **Add `state.chi`** — Float32Array at coarse resolution
    (16 px cells). Source list `state.chiSources` populated at
    fission/dissolve/merge/spawn with amplitude and decay. Bilinear
@@ -284,7 +291,7 @@ commit.
 - **Persistence schema drift.** If you add new fields to
   `Mind` or `state`, extend `serializeField()` and
   `tryRestoreField()` in the same commit, and bump `SAVE_KEY`
-  (currently `"la:field:v1"`) so old caches are rejected.
+  (currently `"la:field:v2"`) so old caches are rejected.
 
 ## Doppler / credentials
 
@@ -320,8 +327,9 @@ think they exist yet on production:
 - **Space‑warp curvature under χ** — Tier 4. Not started.
 - **Sexual dimorphism** — Tier 2, blocked on fly‑connectome.
 - **PreText / interactive moving text** — Tier 3.5. Not started.
-- **Every Tier 0 substrate item** — not started. That's the
-  recommended first move; see below.
+- **Remaining Tier 0 substrate** — V is live. χ, valence, w‑maxing,
+  light cones, and morphology memory are not. Next: `state.chi`.
+  (`SAVE_KEY` is currently `"la:field:v2"`.)
 
 ## Contact
 

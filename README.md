@@ -26,7 +26,12 @@ Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
   the animal's own hue.
 - **Warm filaments** — bonds between adjacent committed minds. These are
   the polyomino's actual edges. Different animals show up as different
-  colors from a 12‑hue palette.
+  colors from a 12‑hue palette. Opacity and width follow |ΔV| across
+  the bond: matched voltage is open; a large drop gates the filament
+  shut (Levin gap‑junction conductance).
+- **V ring** — a thin teal (hyperpolarized) or coral (depolarized) ring
+  on every mind. The telemetry `V` readout is the mean voltage of
+  committed cells.
 - **Birth flash rings** — expanding cream rings when a mind commits. When
   multiple minds commit within the same tick, their rings amplify into a
   brighter *chord* burst (Mind‑Cannot‑Smear‑Across‑Time).

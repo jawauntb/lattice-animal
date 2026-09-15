@@ -185,14 +185,13 @@ building decoration. Concretely:
 
 ### Tier 0 — the substrate (build this first; everything else lands on it)
 
-- [ ] **Per‑mind V (voltage / concern scalar).** One number on each
-      Mind, initialized from a small distribution around 0. Drifts
-      toward the mean V of its committed neighbors (a diffusion step,
-      not a snap). Species pick their resting V from the palette.
-      Bond opacity/width now depends on ΔV across the bond (Levin: gap
-      junction conductance is voltage‑gated). Commit probability
-      depends on |V − V_neighbors_mean|. This one field replaces four
-      or five ad‑hoc heuristics.
+- [x] **Per‑mind V (voltage / concern scalar).** Shipped 2026‑09‑15.
+      Gaussian init around 0; species `restingV` applied on color
+      inherit. Diffuses toward committed‑neighbor mean at 0.02/frame
+      (0.008 toward resting V if isolated). Bond opacity/width =
+      f(1 − |ΔV|). Teal/coral V ring. Telemetry `V` = mean committed
+      voltage. Persist `la:field:v2`. Commit is **not** gated on V
+      yet (that wait is intentional — χ and valence land first).
 
 - [ ] **Concern field χ(x, y).** A spatial map recomputed each frame as
       the sum of Gaussians centered on active animal‑level events

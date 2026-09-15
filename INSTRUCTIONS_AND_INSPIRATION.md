@@ -225,8 +225,9 @@ demo needs but doesn't have:
    fragments animals; they should try to reform.
 5. **W‑maxing not yet implemented** (Bennett formal result). Gauge, commit
    thresholds, ghost‑self collapse are all simp‑maxing.
-6. **Tapestry of valence still a scalar plan** (Bennett). V is one number;
-   it should be a vector.
+6. **Tapestry of valence still a scalar plan** (Bennett). Per‑mind V is
+   now live as the scalar substrate (diffusion + ΔV‑gated bonds). The
+   7‑dim valence vector on top of it is not.
 7. **No temporal gap visualization** (Bennett). Chord and arpeggio modes
    are missing; we only have chord amplification.
 8. **No 2nd‑order‑self mechanic** (Bennett). Nothing predicts what other

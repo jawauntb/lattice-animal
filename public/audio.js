@@ -9,17 +9,19 @@ let muted = false;
 const lastPlayTs = new Map();
 
 // The 10 species + their colors (matched to ANIMAL_HUES rgb strings in main.js).
+// restingV is the Levin membrane-voltage band: negative = hyperpolarized
+// (anchors, synchrony), positive = depolarized (encroaches, fissions).
 const SPECIES = [
-  { key: "lion",     rgb: "255, 168, 132" },
-  { key: "parakeet", rgb: "132, 220, 236" },
-  { key: "wolf",     rgb: "168, 156, 240" },
-  { key: "elephant", rgb: "132, 176, 255" },
-  { key: "whale",    rgb: "218, 140, 240" },
-  { key: "frog",     rgb: "170, 232, 148" },
-  { key: "owl",      rgb: "132, 236, 200" },
-  { key: "dolphin",  rgb: "255, 209, 92"  },
-  { key: "cricket",  rgb: "232, 220, 128" },
-  { key: "sparrow",  rgb: "220, 172, 244" },
+  { key: "lion",     rgb: "255, 168, 132", restingV:  0.70 },
+  { key: "parakeet", rgb: "132, 220, 236", restingV:  0.50 },
+  { key: "wolf",     rgb: "168, 156, 240", restingV: -0.20 },
+  { key: "elephant", rgb: "132, 176, 255", restingV: -0.55 },
+  { key: "whale",    rgb: "218, 140, 240", restingV: -0.70 },
+  { key: "frog",     rgb: "170, 232, 148", restingV:  0.10 },
+  { key: "owl",      rgb: "132, 236, 200", restingV: -0.40 },
+  { key: "dolphin",  rgb: "255, 209, 92",  restingV:  0.20 },
+  { key: "cricket",  rgb: "232, 220, 128", restingV:  0.35 },
+  { key: "sparrow",  rgb: "220, 172, 244", restingV: -0.05 },
 ];
 
 export function speciesList() { return SPECIES; }
@@ -27,6 +29,12 @@ export function speciesList() { return SPECIES; }
 export function speciesForColor(rgb) {
   const s = SPECIES.find(s => s.rgb === rgb);
   return s ? s.key : null;
+}
+
+export function restingVForColor(rgb) {
+  if (!rgb) return 0;
+  const s = SPECIES.find(s => s.rgb === rgb);
+  return s ? s.restingV : 0;
 }
 
 export function init() {

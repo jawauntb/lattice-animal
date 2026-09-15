@@ -92,6 +92,7 @@
     <div class="kv"><span class="k">animals</span><span class="v" id="t-animals">–</span></div>
     <div class="kv"><span class="k">largest</span><span class="v" id="t-largest">–</span></div>
     <div class="kv"><span class="k">entropy</span><span class="v" id="t-entropy">–</span></div>
+    <div class="kv"><span class="k">V</span><span class="v" id="t-v">–</span></div>
   </aside>
 
   <footer class="chrome bottom">
@@ -149,6 +150,10 @@
           When it stays there long enough, it <em>commits</em>.</li>
         <li>Two 4‑adjacent committed minds form a bond. A connected component
           of 2+ committed minds is a <em>lattice animal</em>.</li>
+        <li>Each mind carries a voltage <em>V</em> that drifts toward the mean
+          V of its committed neighbors. Bonds brighten when |ΔV| is small and
+          fade when the drop is large — the same voltage‑gated junction Levin
+          describes in tissue.</li>
       </ul>
 
       <h3>What you're seeing</h3>
@@ -159,7 +164,12 @@
         <li><strong>Vector cilia</strong> — a mind's intended next step.
           Uncommitted minds reach outward; committed minds go still.</li>
         <li><strong>Warm filaments</strong> — bonds between adjacent committed
-          minds. These are the polyomino's actual edges.</li>
+          minds. These are the polyomino's actual edges. Opacity and width
+          follow |ΔV| across the bond: matched voltage is open and bright;
+          a large drop gates the filament shut.</li>
+        <li><strong>V ring</strong> — a thin teal (negative / hyperpolarized)
+          or coral (positive / depolarized) ring around each mind. Magnitude
+          is how far V sits from zero.</li>
         <li><strong>Cream outline</strong> — the perimeter of a lattice animal.</li>
         <li><strong>Cosmic dust &amp; twinkles</strong> — the medium the minds
           drift through, drawn from the objetd'art <em>stars</em> vibe.</li>
@@ -172,6 +182,7 @@
         <li><strong>animals</strong> — number of distinct lattice animals right now</li>
         <li><strong>largest</strong> — cells in the biggest current animal</li>
         <li><strong>entropy</strong> — average per‑mind offset from its gauge cell (0 = perfectly still on grid)</li>
+        <li><strong>V</strong> — mean voltage of committed minds (whole field if none have committed yet)</li>
       </ul>
 
       <p class="attribution">

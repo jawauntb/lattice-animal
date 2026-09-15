@@ -74,6 +74,10 @@ const CFG = {
   dustCount: 160,
   twinkleCount: 44,
   breathHz: 0.05,         // slow global breath
+  // Per-mind V (Levin voltage / Bennett concern). Diffuse only — do not
+  // gate commit on V yet. Bond opacity is the render of ΔV.
+  vDiffuse: 0.02,
+  vRest: 0.008,
 };
 
 // ─── DOM / Canvas setup ──────────────────────────────────────────────────────
@@ -154,7 +158,24 @@ class Mind {
     this.bornAt = 0;
     // Neighbor-mean direction (updated in step). Used for the dual-vector display.
     this.nMeanX = 0; this.nMeanY = 0;
+    // Voltage / concern scalar. Uncommitted minds start near 0; species
+    // resting V is applied once the mind inherits an animal color.
+    this.restingV = 0;
+    this.V = clamp(gauss(0, 0.12), -1, 1);
   }
+}
+
+function gauss(mean, std) {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return mean + std * Math.sqrt(-2 * Math.log(u)) * Math.cos(Math.PI * 2 * v);
+}
+
+function syncRestingV(m, rgb) {
+  const color = rgb || m.animalColor || m.lastAnimalColor;
+  if (!color) return;
+  m.restingV = audio.restingVForColor(color);
 }
 
 function seed(count = CFG.seedCount) {
@@ -424,6 +445,8 @@ function trySpawn() {
   child.tintIdx = p.tintIdx;
   child.animalColor = p.animalColor;
   child.lastAnimalColor = p.animalColor;
+  syncRestingV(child, p.animalColor);
+  child.V = clamp(gauss(child.restingV, 0.10), -1, 1);
   child.spawnedAt = state.frame;
   state.minds.push(child);
   // Small brief nudge in temperature so the newborn shimmers
@@ -652,6 +675,21 @@ function step() {
     count++;
   }
 
+  // V diffusion: each mind drifts toward the mean V of its committed
+  // Voronoi neighbors. Isolated minds rest toward their species band.
+  // Rate is a leak, not a snap — Levin gap-junction matching.
+  for (let i = 0; i < minds.length; i++) {
+    const m = minds[i];
+    const N = neighborsCache[i] || [];
+    let sum = 0, n = 0;
+    for (const j of N) {
+      if (minds[j].committed) { sum += minds[j].V; n++; }
+    }
+    const target = n > 0 ? sum / n : m.restingV;
+    const rate = n > 0 ? CFG.vDiffuse : CFG.vRest;
+    m.V = clamp(m.V + (target - m.V) * rate, -1, 1);
+  }
+
   if (count > 0) {
     // Rotation adapts freely, but spacing stays anchored to the initial size —
     // free adaptation collapses (contracting minds → smaller spacing → more contraction).
@@ -864,6 +902,7 @@ function step() {
         minds[idx].animalId = animalCount;
         minds[idx].animalColor = color;
         minds[idx].lastAnimalColor = color;
+        syncRestingV(minds[idx], color);
       }
       state.animalColors.set(animalCount, color);
       animalSize.push(members.length);
@@ -1185,9 +1224,14 @@ function drawBonds() {
         if (seen.has(edgeKey)) continue;
         seen.add(edgeKey);
         const o = minds[j];
-        ctx.strokeStyle = `rgba(${color}, 0.9)`;
-        ctx.shadowColor = `rgba(${color}, 0.85)`;
-        ctx.shadowBlur = 10;
+        // Levin: gap-junction conductance is voltage-gated. Same-V bonds
+        // stay open and bright; large |ΔV| gates them shut.
+        const dV = Math.abs((m.V ?? 0) - (o.V ?? 0));
+        const gate = clamp(1 - dV, 0, 1);
+        ctx.strokeStyle = `rgba(${color}, ${0.22 + 0.68 * gate})`;
+        ctx.shadowColor = `rgba(${color}, ${0.30 + 0.55 * gate})`;
+        ctx.shadowBlur = 4 + 8 * gate;
+        ctx.lineWidth = 0.65 + 1.15 * gate;
         ctx.beginPath();
         ctx.moveTo(m.x, m.y);
         ctx.lineTo(o.x, o.y);
@@ -1345,6 +1389,18 @@ function drawMinds() {
       }
     }
 
+    // V ring — sign as tissue teal (hyperpolarized) vs coral (depolarized),
+    // magnitude as alpha. Cool accent only; warmth stays on committed gold.
+    const vAbs = Math.abs(m.V);
+    if (vAbs > 0.04) {
+      const vTint = m.V >= 0 ? "226, 140, 108" : "134, 186, 168";
+      ctx.strokeStyle = `rgba(${vTint}, ${0.16 + 0.40 * vAbs})`;
+      ctx.lineWidth = 0.85;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, (isAnimal ? 5.2 : 4.6) * breathScale, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     // Outer soft glow
     const glowTint = isAnimal ? (m.animalColor || CREAM) : tint;
     ctx.shadowColor = `rgba(${glowTint}, ${0.9 * brightness})`;
@@ -1395,6 +1451,13 @@ function tick() {
   }
   const e = state.minds.length ? (se / state.minds.length) : 0;
   el("t-entropy").textContent = e.toFixed(3);
+  const committed = state.minds.filter(m => m.committed);
+  const src = committed.length ? committed : state.minds;
+  const meanV = src.length
+    ? src.reduce((a, m) => a + m.V, 0) / src.length
+    : 0;
+  const vEl = el("t-v");
+  if (vEl) vEl.textContent = (meanV >= 0 ? "+" : "") + meanV.toFixed(2);
 }
 function setVerseText(text) {
   const v = document.getElementById("verse");
@@ -1447,6 +1510,13 @@ window.__la = Object.assign(window.__la || {}, {
   togglePause,
   reseed: doReseed,
   toggleMute,
+  vStats() {
+    const vs = state.minds.map(m => m.V);
+    if (!vs.length) return { n: 0, mean: 0, min: 0, max: 0 };
+    let min = vs[0], max = vs[0], sum = 0;
+    for (const v of vs) { if (v < min) min = v; if (v > max) max = v; sum += v; }
+    return { n: vs.length, mean: sum / vs.length, min, max };
+  },
 });
 
 // Audio needs a user gesture to start on most browsers; wire it to the first
@@ -1550,9 +1620,10 @@ function describeMind(m) {
     state1 = `<em>searching</em>`;
     state2 = `Still hunting for its spot. Its neighbor mean is pulling one way; the gauge target another. It'll settle when the two align.`;
   }
+  const vStr = (m.V >= 0 ? "+" : "") + m.V.toFixed(2);
   const speciesLine = speciesKey
-    ? `<div class="tooltip-species">${species} · voice at commit and growth</div>`
-    : `<div class="tooltip-species">quiet species · silent</div>`;
+    ? `<div class="tooltip-species">${species} · V ${vStr}</div>`
+    : `<div class="tooltip-species">quiet species · V ${vStr}</div>`;
   return `${speciesLine}<div class="tooltip-body">${state1} — ${state2}</div>`;
 }
 function updateMindTooltip(clientX, clientY, canvasX, canvasY) {
@@ -1592,7 +1663,7 @@ function hideMindTooltip() {
 // ─── Persistence ─────────────────────────────────────────────────────────────
 // Save the field to localStorage every few seconds so the ecology survives
 // tab close, refresh, minimize-then-hours-later, or a Railway redeploy.
-const SAVE_KEY = "la:field:v1";
+const SAVE_KEY = "la:field:v2";
 const SAVE_EVERY_FRAMES = 300;   // ~5 seconds at 60fps
 let lastSaveFrame = 0;
 
@@ -1606,9 +1677,10 @@ function serializeField() {
     ti: m.tintIdx, ph: +m.phase.toFixed(2), os: +m.orgSeed.toFixed(3), ci: m.cilia,
     ba: m.bornAt || 0, sa: m.spawnedAt || 0, cf: m.commitFlash | 0, cc: m.commitChord || 1,
     a: !!m._assigned,
+    V: +m.V.toFixed(3), rV: +m.restingV.toFixed(3),
   }));
   return {
-    v: 1,
+    v: 2,
     ts: Date.now(),
     gauge: { cx: state.gauge.cx, cy: state.gauge.cy, theta: state.gauge.theta, s: state.gauge.s },
     jitter: state.jitter, frame: state.frame,
@@ -1635,7 +1707,7 @@ function tryRestoreField() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    if (!data || data.v !== 1) return false;
+    if (!data || data.v !== 2) return false;
     // Refuse a save older than 3 days — the ecology is fresh, not archaeological
     if (Date.now() - (data.ts || 0) > 3 * 24 * 3600 * 1000) return false;
     // Rehydrate
@@ -1660,6 +1732,9 @@ function tryRestoreField() {
       m.commitFlash = s.cf;
       m.commitChord = s.cc;
       m._assigned = s.a;
+      m.V = typeof s.V === "number" ? clamp(s.V, -1, 1) : m.V;
+      m.restingV = typeof s.rV === "number" ? clamp(s.rV, -1, 1) : m.restingV;
+      if (m.animalColor || m.lastAnimalColor) syncRestingV(m);
       state.minds.push(m);
     }
     state.gauge.cx = data.gauge.cx * sx;
