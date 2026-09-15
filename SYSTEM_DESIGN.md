@@ -200,6 +200,8 @@ Small module. Public API:
 - `restingVForColor(rgb)` — species resting V, or 0 for quiet / unknown
 - `init()`, `resume()`, `setMuted(bool)`, `isMuted()`, `play(speciesKey,
   event)` — event ∈ {birth, commit, growth, merger, fission, death}
+- `playStir({xNorm, speedNorm})` — overlapping glass grains while
+  painting; `playTouch(xNorm)` — two-note tap chord
 - Internal helpers: `osc`, `gain`, `lpf`, `bpf`
 - Ten voice functions: `lion`, `parakeet`, `wolf`, `elephant`, `whale`,
   `frog`, `owl`, `dolphin`, `cricket`, `sparrow` — each builds an
@@ -297,9 +299,9 @@ Mind = {
 | Voronoi toggle | V (hidden) | — |
 | Field toggle | F (hidden) | — |
 | Ghost lattice | G (hidden) | — |
-| Drop 3 minds | click | tap |
-| Paint trail | drag | drag |
-| Hover blurb | pointermove | — (touch pending) |
+| Drop 3 minds | click | tap (chord + blurb if still) |
+| Paint trail | drag | drag (glass grains; no page scroll) |
+| Hover blurb | pointermove | still-tap on a mind |
 | Info modal | ? button, ? key | ? button |
 | Legend + telemetry | always visible | ⌇ button |
 | Narrator drawer | verse row (▲) | verse row (▲) |

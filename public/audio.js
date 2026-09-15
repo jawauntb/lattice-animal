@@ -61,6 +61,53 @@ export function resume() {
 export function setMuted(v) { muted = !!v; }
 export function isMuted() { return muted; }
 
+// Glass grains for a finger dragging across the field. Pentatonic, quiet,
+// overlapping — a cilia shimmer, not a whoosh. x picks the pitch; speed
+// picks how hard the grain speaks. iOS needs the existing ctx (armed on
+// first gesture) and a resume() on every stroke.
+export function playStir({ xNorm = 0.5, speedNorm = 0.4 } = {}) {
+  if (!ctx || muted) return;
+  const now = performance.now();
+  if (now - (lastPlayTs.get("stir") || 0) < 78) return;
+  lastPlayTs.set("stir", now);
+  const scale = [392.00, 440.00, 523.25, 587.33, 659.25, 783.99];
+  const idx = Math.round(clamp01(xNorm) * (scale.length - 1));
+  const f = scale[idx];
+  const sc = 0.15 + 0.24 * clamp01(speedNorm);
+  const t = ctx.currentTime;
+  const o = osc("sine", f);
+  const o2 = osc("triangle", f * 2.01);
+  const filter = lpf(1650, 0.8);
+  const g = gain(0);
+  o.connect(filter); o2.connect(filter); filter.connect(g);
+  g.gain.linearRampToValueAtTime(0.28 * sc, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
+  o.start(t); o.stop(t + 0.21);
+  o2.start(t); o2.stop(t + 0.16);
+}
+
+export function playTouch(xNorm = 0.5) {
+  if (!ctx || muted) return;
+  const now = performance.now();
+  if (now - (lastPlayTs.get("touch") || 0) < 140) return;
+  lastPlayTs.set("touch", now);
+  const scale = [523.25, 659.25, 783.99];
+  const t = ctx.currentTime;
+  const root = scale[Math.round(clamp01(xNorm) * (scale.length - 1))];
+  for (let i = 0; i < 2; i++) {
+    const o = osc("sine", root * (i ? 1.498 : 1));
+    const filter = lpf(1900, 0.6);
+    const g = gain(0);
+    o.connect(filter); filter.connect(g);
+    const s = t + i * 0.03;
+    g.gain.linearRampToValueAtTime(0.16, s + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.001, s + 0.32);
+    o.start(s); o.stop(s + 0.34);
+  }
+}
+
+function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+
 export function play(speciesKey, event = "commit") {
   if (!ctx || muted || !speciesKey) return;
   const now = performance.now();

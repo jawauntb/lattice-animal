@@ -83,8 +83,10 @@ commit (soft), growth milestones (full‑voice), merger, fission, and death.
 - **Space** or the ⏸ button — pause / resume
 - **R** or the ↻ button — reseed a fresh field
 - **M** or the speaker button — mute / unmute (persisted in localStorage)
-- **Tap / click** — drop three minds at that point
-- **Drag** — paint a trail of minds along the pointer path
+- **Tap / click** — drop three minds at that point (a glass chord;
+  a still tap also shows the mind's blurb, including on a phone)
+- **Drag** — paint a trail of minds. The field plucks a quiet grain
+  under your finger. Pitch follows where you are.
 - **Hover a mind** — quick blurb of what it's doing and its species
 - **?** — open the full explainer
 - **⌇** — on mobile, reveal the legend + telemetry

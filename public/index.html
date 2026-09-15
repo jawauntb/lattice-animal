@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#05060a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
 <title>Lattice Animal — a body made of minds</title>
 <meta name="description" content="A living tessellation where independent cell-minds find each other through movement alone and form a shared body. For CIMC's Lattice Animals hackathon." />
 
@@ -82,8 +85,8 @@
     <button class="row keys tappable" data-action="pause"><kbd>space</kbd><span>pause / resume</span></button>
     <button class="row keys tappable" data-action="reseed"><kbd>R</kbd><span>reseed a fresh field</span></button>
     <button class="row keys tappable" data-action="mute"><kbd>M</kbd><span>mute / unmute the field</span></button>
-    <div class="row keys"><kbd>tap</kbd><span>drop three minds here</span></div>
-    <div class="row keys"><kbd>drag</kbd><span>paint a trail of minds</span></div>
+    <div class="row keys"><kbd>tap</kbd><span>drop three minds · hear the field</span></div>
+    <div class="row keys"><kbd>drag</kbd><span>paint a trail · the glass sings</span></div>
   </aside>
 
   <aside class="chrome telemetry" id="telemetry" aria-label="Telemetry">
@@ -117,7 +120,8 @@
         everything they can see is where their nearest neighbors are. Over
         about half a minute they negotiate a shared grid, lock into it one at
         a time, and connect into small polyominos — those are the
-        <em>lattice animals</em>.
+        <em>lattice animals</em>. After they lock, the story does not stop:
+        they wander, birth, split, and join, and this log keeps speaking.
       </p>
       <div class="drawer-log" id="drawer-log">
         <div class="drawer-log-empty">no events yet — the field is warming up.</div>
@@ -168,6 +172,9 @@
           minds. These are the polyomino's actual edges. Opacity and width
           follow |ΔV| across the bond: matched voltage is open and bright;
           a large drop gates the filament shut.</li>
+        <li><strong>Drag the field</strong> — a finger or pointer paints a
+          trail of minds and plucks a quiet glass grain. The pitch follows
+          where you are; the loudness follows how fast you move.</li>
         <li><strong>V ring</strong> — a thin teal (negative / hyperpolarized)
           or coral (positive / depolarized) ring around each mind. Magnitude
           is how far V sits from zero.</li>

@@ -40,6 +40,44 @@ const VERSES = [
   "committed by staying still on the same map",
   "the body appears where minds refuse to drift apart",
   "movement is the only language they share",
+  "voltage matches, and a bond remembers how to open",
+  "the body keeps walking after the argument is over",
+  "a concern blooms, then the lattice leans toward it",
+];
+
+const LIFE_PULSE = [
+  {
+    short: "the animals are still negotiating",
+    long: "Commitment was not the end. The bodies keep choosing the next cell, and the shared grid keeps breathing under them.",
+  },
+  {
+    short: "a body is walking one cell at a time",
+    long: "An edge mind released its hold and reached for the empty square beside it. That is how a lattice animal takes a step.",
+  },
+  {
+    short: "nothing here is finished",
+    long: "The field is alive because it refuses to freeze. Wander, birth, split, and join are the same agreement, later.",
+  },
+  {
+    short: "the pattern is still arriving",
+    long: "What you see is a pointer. The animal is the pattern using these cells as a doorway, and it is not done coming through.",
+  },
+  {
+    short: "neighbors are still the only news",
+    long: "No mind can see the whole body. Each one only feels who is next to it, and that is enough to keep a shape.",
+  },
+  {
+    short: "the voltage is finding its rest",
+    long: "Cells that agree on V keep their gold bonds bright. A mismatch dims the filament until they match again, or part.",
+  },
+  {
+    short: "an edge is thinking about a child",
+    long: "Spawn starts as a tightness at the rim. If the empty cell stays empty, a new mind will be asked to sit there.",
+  },
+  {
+    short: "the field has not gone quiet",
+    long: "Stillness on the grid is not silence. The animals are holding a form while they decide whether to grow, walk, or divide.",
+  },
 ];
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -214,6 +252,7 @@ function seed(count = CFG.seedCount) {
   state.narration.history.length = 0;
   state.narration.flags = {};
   state.narration.lastNarratedFrame = -1000;
+  state.narration.lastLifeFrame = -1000;
   state.chiSources.length = 0;
   state.chi = null;
   state.chiW = 0;
@@ -340,6 +379,13 @@ function findLargestAnimalColor() {
 }
 
 // ─── Narrator ────────────────────────────────────────────────────────────────
+function narrateLife({ short, long, kind = "life" }) {
+  // Living events are frequent. Keep them readable: one every few seconds.
+  if (state.frame - (state.narration.lastLifeFrame || -1e9) < 60 * 2.6) return;
+  state.narration.lastLifeFrame = state.frame;
+  narrate({ short, long, kind });
+}
+
 function narrate({ short, long, kind = "note" }) {
   // Debounce: at least 20 frames between narrations so the reader can catch each.
   if (state.frame - state.narration.lastNarratedFrame < 20) return;
@@ -496,6 +542,13 @@ function tryWander() {
   const norm = Math.hypot(dx, dy) || 1;
   m.vx += (dx / norm) * 1.6;
   m.vy += (dy / norm) * 1.6;
+  if (Math.random() < 0.16) {
+    narrateLife({
+      short: "a body took a single step",
+      long: "An edge cell released its hold and reached for the empty square beside it. That is a walk, one lattice step at a time.",
+      kind: "life",
+    });
+  }
   return true;
 }
 
@@ -527,6 +580,11 @@ function trySpawn() {
   const sp = voiceOf(p);
   if (sp) audio.play(sp, "birth");
   emitChi(child.x, child.y, 0.85, 70);
+  narrateLife({
+    short: "a new mind sat down at the edge",
+    long: "The animal asked an empty cell to host someone. The child inherited a color and a resting voltage, and now it has to earn the grid.",
+    kind: "life",
+  });
   return true;
 }
 
@@ -541,6 +599,11 @@ function tryDissolve() {
   const sp = voiceOf(target);
   if (sp) audio.play(sp, "death");
   emitChi(target.x, target.y, 0.75, 64);
+  narrateLife({
+    short: "a drifting mind is fading",
+    long: "It never found a cell it could keep. The field is letting it go so the remaining bodies can breathe.",
+    kind: "life",
+  });
   return true;
 }
 
@@ -581,6 +644,11 @@ function tryFission() {
   const sp = voiceOf(m);
   if (sp) audio.play(sp, "fission");
   emitChi(m.x, m.y, 1.2, 92);
+  narrateLife({
+    short: "a body divided along a thin neck",
+    long: "A bridge cell let go. One animal is becoming two, and each half will try to remember a shape.",
+    kind: "life",
+  });
   return true;
 }
 // ─── Narrator: sniff phase-change events and narrate them.
@@ -1012,11 +1080,14 @@ function step() {
   }
 
   state.verseTimer++;
-  // The narrator now drives the verse line. If it hasn't spoken in a while
-  // (nothing worth reporting), cycle through the ambient verses so the bar
-  // never sits empty.
+  // The narrator never goes silent. After commit, speak living observations.
+  // Before that, cycle ambient verses if the phase events have been quiet.
   const framesSinceNarration = state.frame - state.narration.lastNarratedFrame;
-  if (framesSinceNarration > 60 * 10 && state.verseTimer > 60 * 8) {
+  if (state.narration.flags.living && framesSinceNarration > 60 * 11) {
+    const pulse = LIFE_PULSE[state.verseIndex % LIFE_PULSE.length];
+    state.verseIndex++;
+    narrate({ short: pulse.short, long: pulse.long, kind: "life" });
+  } else if (!state.narration.flags.living && framesSinceNarration > 60 * 10 && state.verseTimer > 60 * 8) {
     state.verseTimer = 0;
     state.verseIndex = (state.verseIndex + 1) % VERSES.length;
     setVerseText(VERSES[state.verseIndex]);
@@ -1577,7 +1648,7 @@ function setVerseText(text) {
   v.style.opacity = 0;
   setTimeout(() => {
     v.textContent = text;
-    v.style.opacity = 0.85;
+    v.style.opacity = 1;
   }, 800);
 }
 
@@ -1660,7 +1731,14 @@ window.addEventListener("touchstart", armAudio, true);
 
 // Paint interaction: click drops three minds; drag paints a trail of them
 // (respectful of gauge spacing so they don't pile up).
-const paint = { active: false, lastX: 0, lastY: 0, minSpacing: 24 };
+const paint = { active: false, lastX: 0, lastY: 0, minSpacing: 22, startX: 0, startY: 0, moved: false, lastStir: 0 };
+function stirAt(x, y, speed) {
+  audio.resume();
+  audio.playStir({
+    xNorm: W ? x / W : 0.5,
+    speedNorm: clamp(speed / 36, 0.15, 1),
+  });
+}
 function dropMindsAt(x, y, count = 3, jitter = 0.8) {
   const s = state.gauge.s;
   for (let i = 0; i < count; i++) {
@@ -1671,14 +1749,24 @@ function dropMindsAt(x, y, count = 3, jitter = 0.8) {
   state.jitter = Math.max(state.jitter, 0.9);
   emitChi(x, y, 0.55, 56);
 }
+function isCoarsePointer() {
+  return window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+}
+canvas.addEventListener("touchmove", (e) => { e.preventDefault(); }, { passive: false });
 canvas.addEventListener("pointerdown", (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
   paint.active = true;
+  paint.moved = false;
+  paint.spoken = false;
   paint.lastX = x; paint.lastY = y;
+  paint.startX = x; paint.startY = y;
+  audio.resume();
+  audio.playTouch(W ? x / W : 0.5);
   dropMindsAt(x, y, 3, 0.8);
-  canvas.setPointerCapture(e.pointerId);
+  hideMindTooltip();
+  try { canvas.setPointerCapture(e.pointerId); } catch {}
 });
 canvas.addEventListener("pointermove", (e) => {
   const rect = canvas.getBoundingClientRect();
@@ -1687,10 +1775,11 @@ canvas.addEventListener("pointermove", (e) => {
   state.mouse.x = x;
   state.mouse.y = y;
   state.mouse.inside = true;
-  updateMindTooltip(e.clientX, e.clientY, x, y);
   if (paint.active) {
     const dx = x - paint.lastX, dy = y - paint.lastY;
     const d = Math.hypot(dx, dy);
+    if (Math.hypot(x - paint.startX, y - paint.startY) > 10) paint.moved = true;
+    if (d > 2) stirAt(x, y, d);
     if (d >= paint.minSpacing) {
       const steps = Math.floor(d / paint.minSpacing);
       for (let k = 1; k <= steps; k++) {
@@ -1698,17 +1787,37 @@ canvas.addEventListener("pointermove", (e) => {
         dropMindsAt(paint.lastX + dx * t, paint.lastY + dy * t, 1, 0.3);
       }
       paint.lastX = x; paint.lastY = y;
+      if (!paint.spoken) {
+        paint.spoken = true;
+        narrateLife({
+          short: "you drew a trail of minds",
+          long: "They only know they were placed. The rest is the same work as everyone else: see neighbors, propose a gauge, try to stay.",
+          kind: "life",
+        });
+      }
     }
+  } else if (!isCoarsePointer()) {
+    updateMindTooltip(e.clientX, e.clientY, x, y);
   }
 });
 canvas.addEventListener("pointerup", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if (!paint.moved) {
+    updateMindTooltip(e.clientX, e.clientY, x, y);
+    if (isCoarsePointer()) {
+      clearTimeout(_tooltip.hideTimer);
+      _tooltip.hideTimer = setTimeout(hideMindTooltip, 3200);
+    }
+  }
   paint.active = false;
   try { canvas.releasePointerCapture(e.pointerId); } catch {}
 });
 canvas.addEventListener("pointercancel", () => { paint.active = false; });
 canvas.addEventListener("pointerleave", () => {
   state.mouse.inside = false;
-  hideMindTooltip();
+  if (!isCoarsePointer()) hideMindTooltip();
 });
 
 // ─── Mind tooltip ────────────────────────────────────────────────────────────

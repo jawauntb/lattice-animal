@@ -98,7 +98,11 @@ regress any of these.
 - Web Audio armed on first user gesture only
 
 **Narrator**
-- Bottom verse becomes a live narrator line
+- Bottom verse becomes a live narrator line in a readable glass pill
+  (sits above the drawer; cream type; wraps on phones)
+- Living-phase narration never goes quiet: spawn / wander / fission /
+  dissolve / merge, plus a pulse every ~11 s if the ecology is merely
+  holding. Drag-painting a trail also speaks once per stroke.
 - Chevron pill (visible size, hover highlight) expands a bottom drawer
 - Drawer contains intro paragraph for non‑researchers + newest‑first
   log of every phase‑change event with short + long commentary
@@ -111,8 +115,10 @@ regress any of these.
 - **Space** / ⏸ button — pause / resume
 - **R** / ↻ button — reseed a fresh field (clears the save)
 - **M** / speaker button / legend row — mute / unmute (persisted)
-- **Tap / click** on canvas — drop three minds
-- **Drag** on canvas — paint a trail of minds
+- **Tap / click** on canvas — drop three minds (glass chord + tooltip
+  on a still tap, including iPad)
+- **Drag** on canvas — paint a trail of minds; a quiet pentatonic
+  grain follows the finger (pitch = x, loudness = speed)
 - **Hover** a mind on desktop — floating blurb of its species, its
   state, and a one‑sentence plain‑language explanation
 - **?** button (bottom‑left) — full explainer modal
