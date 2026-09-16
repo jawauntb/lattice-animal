@@ -8,9 +8,49 @@ A living tessellation where a hundred independent cell‑minds find each
 other through movement alone and lock into a shared polyomino body. Each
 mind sees only its Voronoi neighbors and moves according to a local rule.
 From no communication, a shared grid emerges; from the shared grid,
-animals emerge; from the animals, an ecology.
+animals emerge; from the animals, an ecology. A compiled fly heading
+circuit thinks inside each cell. Once a body exists, that thought walks
+the polyomino as a traveling wave — analog add and cancel at the seams.
 
 Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
+
+## How it works
+
+Nothing talks. A mind sees only the Voronoi neighbors around it and
+moves. From those positions it proposes a spacing and a rotation. The
+shared *gauge* is the running mean of those proposals. A mind that stays
+on one cell of that gauge long enough *commits*. Two 4‑adjacent
+committed minds are an animal — a real polyomino, not a drawing.
+
+After that the field does not freeze.
+
+1. **Voltage *V*** — each mind carries a concern scalar. It leaks toward
+   the mean *V* of committed neighbors (Levin gap junctions). Bonds
+   brighten when |ΔV| is small and dim shut when the drop is large.
+2. **Concern field *χ*** — spawn, fission, merge, and your tap leave a
+   cool bloom. Nearby cells tighten their spacing. The global grid does
+   not collapse.
+3. **Fly circuit** — a 47‑neuron heading motif from the Janelia male CNS
+   (EPG / PEN / PEG / Delta7) loops *K* times on the page and writes a
+   bump into that cell's *V*. A slower 754‑neuron / 7200‑synapse thought
+   on one Modal L4 waits through page load, then writes a letter every
+   four seconds. The GPU scales to zero. The page never waits.
+4. **Traveling waves** — that heading bump leaves the cell and walks the
+   animal (Miller, Brincat & Roy 2026, *Analog Cognition and
+   Consciousness*). Slow *beta* is the stencil: memory, species clock,
+   what the body is holding. Faster *gamma* is the edge report, allowed
+   only where beta is open. Cool pearls ride the gold bonds. Telemetry
+   `wave` is mean beta coherence across animals.
+5. **Seams compute** — where two animals touch, the waves add or cancel.
+   Add + a size/coherence edge: the larger body writes its color and
+   voltage into the smaller one. The cells stay on the grid. Only the
+   lineage changes. That is eating. Cancel: a neck cell lets go. That is
+   competing. When one pattern holds a body of five or more, the
+   predictive ghosts reach farther. That is the higher‑order animal —
+   not more cells, one wave.
+
+Every state is still a lattice animal: cells on a shared gauge, bonded
+4‑adjacent. Waves do not take anyone off the grid.
 
 ## What you're watching
 
@@ -73,10 +113,17 @@ Once ~85% of the field has committed, the ecology takes over:
 - **Fission** — a large animal splits when a bridge cell releases its
   commit.
 - **Merger** — a new commit bridging two animals fuses them into one.
+- **Eat** — constructive waves at a seam rewrite the smaller animal's
+  lineage. Same squares, new voice.
+- **Compete** — destructive waves open a neck. One body becomes two.
+- **Integrate** — high beta coherence on a body of five or more. The
+  wave has found one animal.
 - **Dissolve** — an uncommitted mind that's drifted for too long fades
   out over 45 frames.
 - **Gauge breath** — the shared rotation slowly drifts, so animals must
   constantly re‑negotiate.
+- **Persist** — the field snapshots to `localStorage` so a refresh
+  keeps the animals for up to three days. **R** clears the save.
 
 ## Ten voiced species
 
@@ -96,10 +143,16 @@ voiced with Web Audio — no audio files ship with the site.
 | Cricket | lemon | 4 tight ~5 kHz pulses |
 | Sparrow | lilac | 3‑note triangle warble |
 
-Rose and ember hues stay silent — the quiet species. Sounds trigger on
-commit (after the mind has a color), growth, merger, fission, death,
-a walk, and a living-phase call every few seconds so a saved field
-still has a voice. Tap once so the browser will let the field speak.
+Rose and ember hues stay silent — the quiet species. Species also
+differ by *what they cause*: lion depolarizes neighbors, whale keeps a
+long slow clock, dolphin loops the circuit deepest. Those clocks set
+the wave tempo — whale slow, lion fast — same fly weights, different
+return time.
+
+Sounds trigger on commit (after the mind has a color), growth, merger,
+fission, death, a walk, and a living-phase call every few seconds so a
+saved field still has a voice. Tap once so the browser will let the
+field speak.
 
 ## Controls
 
@@ -138,11 +191,16 @@ The demo weaves in ideas from a survey of CIMC research documents:
 - **First‑Order Self / Tapestry of Valence / Ensemble Uncertainty** —
   drives the per‑animal color palette and the delayed‑response cues on
   neighbor‑caused vs. self‑caused motion.
+- **Levin, Ingressing Minds / planarian bioelectric memory** — *V*,
+  voltage‑gated bonds, remembered holes, regeneration toward a shape.
+- **Miller, Brincat & Roy 2026, Analog Cognition and Consciousness** —
+  traveling beta/gamma on the polyomino; analog add and cancel at the
+  seam; a globally integrated wave as the higher‑order body.
 
 ## Stack
 
 - Vanilla ES modules, no build step
-- `d3-delaunay` (loaded from a CDN) for Voronoi
+- `d3-delaunay` from `public/vendor/` (no CDN on the hot path) for Voronoi
 - Web Audio for procedural species voices
 - `express` + `compression` — served statically
 - Deployed on Railway (`node server.js` at `$PORT`, `/healthz` for the
