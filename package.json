@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node tests/mobile-budget.test.mjs"
+    "test": "node tests/mobile-budget.test.mjs && node tests/jev.test.mjs"
   },
   "engines": {
     "node": ">=20"

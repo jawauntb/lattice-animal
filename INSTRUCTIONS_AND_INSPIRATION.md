@@ -528,6 +528,9 @@ finding one animal.
    Chrome collapses on narrow viewports; a ⌇ button reveals it. The
    field must not remap or strobe when the URL bar hides — cover the
    new pixels, leave the minds where they are.
+4b. **Jev is a gut check, not a narrator.** TypeSafe System One
+   returns typed probabilities. It never writes the verse, and it
+   never takes a mind off the gauge. Code composes the answers.
 5. **The interface is quiet.** Chrome fades away; the field is the
    subject. Legend, telemetry, and the narrator drawer all sit in
    translucent glass panels behind the field.

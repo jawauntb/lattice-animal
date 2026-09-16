@@ -53,9 +53,14 @@ After that the field does not freeze.
    competing. When one pattern holds a body of five or more, the
    predictive ghosts reach farther. That is the higher‑order animal —
    not more cells, one wave.
+6. **Jev** — a System One gut check (TypeSafe, Almeida 2026) over that
+   same field state. It returns typed probabilities: eat, compete,
+   wander / spawn / fission / hold, and which morphospace inhabitant
+   the body is a pointer to. It cannot write a verse. Code still
+   walks the lattice. Telemetry `jev` is the last act, or `off`.
 
 Every state is still a lattice animal: cells on a shared gauge, bonded
-4‑adjacent. Waves do not take anyone off the grid.
+4‑adjacent. Waves do not take anyone off the grid. Jev does not either.
 
 ## Numbers on the page
 
@@ -72,6 +77,7 @@ Every state is still a lattice animal: cells on a shared gauge, bonded
 | loop | mean times the fly circuit is reused this tick |
 | think | `opening` (no GPU yet), `L4 N` (a letter landed), or `local` |
 | wave | mean beta coherence. Near 1, one pattern holds the body |
+| jev | last typed act from Jev, or `off` when no TypeSafe key |
 
 ## What this is not
 
@@ -226,6 +232,9 @@ The demo weaves in ideas from a survey of CIMC research documents:
 - **Miller, Brincat & Roy 2026, Analog Cognition and Consciousness** —
   traveling beta/gamma on the polyomino; analog add and cancel at the
   seam; a globally integrated wave as the higher‑order body.
+- **Almeida / TypeSafe 2026, System One / Jev** — calibrated
+  decisions over field state; eat, compete, and the next lattice
+  move as typed answers, not generated text.
 
 ## Stack
 
@@ -235,6 +244,7 @@ The demo weaves in ideas from a survey of CIMC research documents:
 - `express` + `compression` — served statically
 - Deployed on Railway (`node server.js` at `$PORT`, `/healthz`)
 - Optional Modal L4 behind `/think` (`THINK_URL`, `THINK_TOKEN`)
+- Optional Jev behind `/decide` (`TYPESAFE_API_KEY`)
 - Persistence: browser `localStorage` only (`la:field:v3`)
 - Phone budget: URL-bar height jitter does not remap the field.
   If a frame runs long the extra glows stay dim until the screen

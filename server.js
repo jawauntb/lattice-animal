@@ -2,6 +2,7 @@ import express from 'express';
 import compression from 'compression';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { QUESTIONS } from './public/jev.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -52,6 +53,53 @@ async function thinkStatus(_req, res) {
 
 app.post("/think", proxyThink);
 app.get("/think/status", thinkStatus);
+
+async function proxyDecide(req, res) {
+  const key = process.env.TYPESAFE_API_KEY;
+  if (!key) {
+    res.status(503).json({ ok: false, reason: "no-jev" });
+    return;
+  }
+  const state = req.body && req.body.state;
+  if (!state || typeof state !== "object") {
+    res.status(400).json({ ok: false, reason: "bad-state" });
+    return;
+  }
+  const t0 = Date.now();
+  try {
+    const r = await fetch("https://api.typesafe.ai/v1/systemone", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${key}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        state,
+        model: "jev-latest",
+        questions: QUESTIONS,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    const data = await r.json();
+    if (!r.ok || !data || !data.answers) {
+      res.status(r.ok ? 502 : r.status).json({ ok: false, reason: "jev-down" });
+      return;
+    }
+    res.status(200).json({
+      ok: true,
+      model: data.model || "jev-latest",
+      answers: data.answers,
+      ms: Date.now() - t0,
+    });
+  } catch {
+    res.status(504).json({ ok: false, reason: "jev-timeout" });
+  }
+}
+
+app.post("/decide", proxyDecide);
+app.get("/decide/status", (_req, res) => {
+  res.status(200).json({ ok: !!process.env.TYPESAFE_API_KEY, model: "jev-latest" });
+});
 
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: isProd ? '1h' : 0,

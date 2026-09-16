@@ -1,6 +1,6 @@
 import { Delaunay } from "d3-delaunay";
-import * as audio from "/audio.js?v=17";
-import * as fly from "/connectome.js?v=17";
+import * as audio from "/audio.js?v=18";
+import * as fly from "/connectome.js?v=18";
 import {
   isUrlBarJitter,
   nextSkipHeavy,
@@ -8,7 +8,8 @@ import {
   locusHoldFrames,
   lifeNarrateGap,
   narrateGap,
-} from "/budget.js?v=17";
+} from "/budget.js?v=18";
+import * as jev from "/jev.js?v=18";
 
 // ─── Palette (drawn from objetd'art tissue: cool + warm, muted, luminous) ────
 const TINT = [
@@ -413,6 +414,8 @@ const state = {
   morphByColor: new Map(),  // color → remembered relative offsets
   temporalGapMode: "chord",
   ingressMorph: null,
+  userMorph: null,
+  jev: null,
   bottleneckIdx: -1,
   regenUrgent: 0,
   inhabited: [],
@@ -684,6 +687,8 @@ function seed(count = CFG.seedCount) {
   state.animalKeys.clear();
   state.morphByColor.clear();
   state.ingressMorph = null;
+  state.userMorph = null;
+  state.jev = null;
   state.bottleneckIdx = -1;
   state.regenUrgent = 0;
   state.inhabited = [];
@@ -1140,7 +1145,7 @@ function tryWaveEcology() {
     if (s.inter > 0.28 && s.dV < 0.34 && (!bestLock || s.inter > bestLock.inter)) bestLock = s;
     if (s.inter < -0.26 && (!bestFight || s.inter < bestFight.inter)) bestFight = s;
   }
-  if (bestLock && Math.random() < 0.11) {
+  if (bestLock && jev.eatNow(state.jev, 0.11)) {
     const a = state.minds[bestLock.i];
     const b = state.minds[bestLock.j];
     if (!a || !b || a.animalId < 0 || b.animalId < 0) return false;
@@ -1171,7 +1176,7 @@ function tryWaveEcology() {
     });
     return true;
   }
-  if (bestFight && Math.random() < 0.09) {
+  if (bestFight && jev.competeNow(state.jev, 0.09)) {
     const a = state.minds[bestFight.i];
     const b = state.minds[bestFight.j];
     if (!a || !b) return false;
@@ -1286,19 +1291,20 @@ function updateLivingPhase() {
   // Weighted event pick
   const wanderRoll = Math.random();
   const spawnRoll = Math.random();
+  const lifeW = jev.lifeWeights(state.jev);
   let did = false;
-  if (wanderRoll < LIFE.wanderPerFrame / 60) { did = tryWander() || did; }
+  if (wanderRoll < (LIFE.wanderPerFrame / 60) * lifeW.wander) { did = tryWander() || did; }
   if (state.regenUrgent > 0) state.regenUrgent--;
   const spawnHungry = minds.some(m => m._spawnBias);
   const spawnChance = (LIFE.spawnPerFrame / 60)
+    * lifeW.spawn
     * (spawnHungry ? 2.4 : 1)
     * (state.ingressMorph ? 1.35 : 1)
     * (state.regenUrgent > 0 ? 5 : 1);
   if (spawnRoll < spawnChance && minds.length < Math.min(LIFE.maxMinds, BUDGET.mindCap)) {
     did = trySpawn() || did;
   }
-  // Occasionally consider fission
-  if (Math.random() < 0.006 && state.largestAnimal >= 8) {
+  if (Math.random() < 0.006 * lifeW.fission && state.largestAnimal >= 8) {
     did = tryFission() || did;
   }
   if (state.waveSeams.length && Math.random() < 0.22) {
@@ -3109,6 +3115,13 @@ function tick() {
   if (thinkEl) thinkEl.textContent = cs.gpu ? `L4 ${cs.deepN}` : (cs.think || "local");
   const waveEl = el("t-wave");
   if (waveEl) waveEl.textContent = state.waveCoh ? state.waveCoh.toFixed(2) : "0.00";
+  const jevEl = el("t-jev");
+  if (jevEl) {
+    const last = jev.lastCall();
+    jevEl.textContent = last.ok
+      ? (state.jev && state.jev.act) || last.act
+      : (last.reason === "no-jev" || last.reason === "opening" ? "off" : last.reason || "off");
+  }
   if (state.frame % 20 === 0) updateMorphospace();
 }
 function setVerseText(text, instant) {
@@ -3172,6 +3185,27 @@ function frame() {
     fly.requestThink(state.minds, state.frame, {
       open: !!(state.narration.flags.living || state.animalCount >= 1),
     });
+    jev.requestDecide(state, {
+      open: !!(state.narration.flags.living || state.animalCount >= 1),
+    }).then(decision => {
+      if (!decision) return;
+      const first = !state.jev;
+      state.jev = decision;
+      const morph = jev.pickMorph(decision, state.userMorph);
+      if (morph && morph !== state.ingressMorph && !state.userMorph) {
+        state.ingressMorph = morph;
+        updateMorphospace();
+      }
+      if (first) {
+        const here = mindsCentroid(m => m.animalId >= 0);
+        narrate({
+          short: "a gut check arrived for the body",
+          long: "Jev does not speak. It returned a typed yes, a next move, and a morph pointer. The cells stayed on the grid. The code still does the walking.",
+          kind: "note",
+          x: here.x, y: here.y,
+        });
+      }
+    }).catch(() => {});
   }
   if (state.frame - lastSaveFrame > SAVE_EVERY_FRAMES) {
     lastSaveFrame = state.frame;
@@ -3225,6 +3259,7 @@ function toggleTemporalGap() {
 }
 function setIngressMorph(key) {
   state.ingressMorph = state.ingressMorph === key ? null : key;
+  state.userMorph = state.ingressMorph;
   document.querySelectorAll(".morph-chip").forEach(b => {
     b.classList.toggle("on", b.dataset.morph === state.ingressMorph);
   });
@@ -3282,6 +3317,9 @@ window.__la = Object.assign(window.__la || {}, {
         n: r.n, coh: +r.coh.toFixed(3), integrated: r.integrated,
       })),
     };
+  },
+  jev() {
+    return { last: jev.lastCall(), decision: state.jev, userMorph: state.userMorph };
   },
   vStats() {
     const vs = state.minds.map(m => m.V);

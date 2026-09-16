@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (iter 18 — phone field no longer remaps on the URL bar).
+Last updated: 2026‑09‑16 (iter 19 — Jev gut-check on eat / compete / act / morph).
 
 This file is the architecture you hand a collaborator. `README.md` is
 the public story. `INSTRUCTIONS_AND_INSPIRATION.md` is the aesthetic
@@ -41,6 +41,7 @@ lattice_animal/
 ├── nixpacks.toml                      ← Nixpacks node20 install/start
 ├── docs/railway-autodeploy.md         ← GitHub App + webhook fallback
 ├── tests/mobile-budget.test.mjs       ← URL-bar / skipHeavy predicates
+├── tests/jev.test.mjs                 ← applyAnswers / eatNow / morph handoff
 ├── .github/workflows/deploy.yml       ← optional RAILWAY_WEBHOOK ping
 ├── .gitignore
 ├── icons/
@@ -55,6 +56,7 @@ lattice_animal/
     ├── style.css
     ├── main.js                        ← sim + render + waves + input
     ├── budget.js                      ← phone-stable resize / skipHeavy
+    ├── jev.js                         ← System One questions + apply
     ├── connectome.js                  ← local reflex + /think client
     ├── audio.js                       ← voices + species policies
     ├── data/fly-cx.json               ← compiled heading motif (CC‑BY Janelia)
@@ -72,7 +74,11 @@ lattice_animal/
   `?v=` busts land. Other assets: 1‑hour maxAge in prod. `/healthz`.
   `POST /think` and `GET /think/status` proxy to Modal using
   `THINK_URL`, `THINK_STATUS_URL`, `THINK_TOKEN`. 503 if unset, 504
-  on timeout. Binds `PORT`, default 3000.
+  on timeout. `POST /decide` and `GET /decide/status` proxy to
+  TypeSafe `POST https://api.typesafe.ai/v1/systemone` using
+  `TYPESAFE_API_KEY`. The browser sends field state only; the
+  server attaches `QUESTIONS` from `public/jev.js`. 503 `no-jev`
+  if unset. Binds `PORT`, default 3000.
 - **`package.json`** — `type: module`, `start: node server.js`,
   `engines node>=20`. Runtime: `express`, `compression`. Dev: `sharp`.
 - **`railway.json`** — Nixpacks, `node server.js`, `/healthz`.
@@ -90,13 +96,13 @@ lattice_animal/
   - `.chrome.legend` — cast + controls. `body.panels-off` hides
     legend and telemetry (`pointer-events: none` on descendants)
   - `.chrome.telemetry` — minds, committed, animals, largest,
-    entropy, V, χ, width, loop, think, **wave**
+    entropy, V, χ, width, loop, think, wave, **jev**
   - `.chrome.bottom` — `?`, verse pill, `⌇` (always visible)
   - `.modal-scrim` + `.modal` — full explainer
   - `.narrator-drawer` — log + morphospace chips
   - `#narrator-loci` — pins on the field
   - import map: `d3-delaunay` → `/vendor/d3-delaunay.js`
-  - CSS/JS cache bust: `?v=17` (bump when those files change)
+  - CSS/JS cache bust: `?v=18` (bump when those files change)
   - inline script talks to `window.__la`
 
 ### Styling
@@ -129,10 +135,12 @@ lattice_animal/
 9. `updateWaves(neighbors)` — BFS hops on the polyomino; beta from
    heading + species clock; gamma gated by beta and χ; V += wave.
    Voronoi seams scored as analog products. `tryWaveEcology` —
-   constructive takeover (eat) or destructive neck cut (compete).
+   constructive takeover (eat) or destructive neck cut (compete),
+   gated by Jev noul thresholds when a decision is live.
    `detectWaveNarration` — first wave, first integrated body.
 10. Living phase — wander / spawn / fission / dissolve / wave ecology
-    / random species call. Enters at ≥85% committed or ~22 s.
+    / random species call, rates blended by Jev `act` when
+    confidence clears. Enters at ≥85% committed or ~22 s.
 11. `step()` — Delaunay → proposals → V leak + fly.stepMind +
     species policy → forces → commit → animal BFS →
     `updateWaves` → narrations → living phase → persist every ~5 s.
@@ -143,11 +151,13 @@ lattice_animal/
     bonds + wave pearls → vectors → minds (cilia, valence threads,
     V ring, cancer pulse) → fly constellation → predictive ghosts →
     loci.
-13. `tick()` — telemetry including `#t-wave`.
+13. `tick()` — telemetry including `#t-wave` and `#t-jev`.
 14. Input — space / R / M / H / A / ? / tap / drag / long‑press.
 15. `window.__la` — pause, reseed, mute, panels, temporal gap,
-    `wave()`, `vStats()`, `chiStats()`, `circuitStats()`, wound,
-    size, audioInfo.
+    `wave()`, `jev()`, `vStats()`, `chiStats()`, `circuitStats()`,
+    wound, size, audioInfo.
+16. `jev.requestDecide` every ~2.8 s after an animal exists.
+    Typed answers only. No generated text.
 
 Persistence schema `la:field:v3` stores minds (incl. V, valence,
 cancer), gauge + width, animalKeys, morphByColor, temporalGapMode,
@@ -170,6 +180,18 @@ skipped during the opening, when `document.hidden`, and until
 
 `draw` paints a small constellation on a few thinking minds
 (capped further when `skipHeavy`).
+
+### Jev — `public/jev.js`
+
+TypeSafe System One (Almeida 2026). `QUESTIONS` are eat / compete
+nouls, act + morph choices, one_body score. `snapshot(state)` is
+the only payload the browser sends. `applyAnswers` becomes
+`state.jev`. `eatNow` / `competeNow` replace the old seam coin
+flips when a decision is live. `lifeWeights` scales wander /
+spawn / fission. `pickMorph` sets `ingressMorph` unless the
+viewer already tapped a chip (`userMorph`). Jev cannot generate
+text and cannot place a cell off the grid. `/decide` is 503
+`no-jev` without `TYPESAFE_API_KEY`.
 
 ### Voices — `public/audio.js`
 
@@ -233,6 +255,7 @@ state = {
   chi, chiW, chiH, chiSources[],
   waveCoh, waveByAnimal: Map, waveSeams[],
   loci[], gaze, bottleneckIdx, regenUrgent,
+  ingressMorph, userMorph, jev,
   perf: { lastMs, skipHeavy, streak, calm, noticeAt },
   _delaunay, _voronoi, _neighbors,
 }
@@ -307,7 +330,9 @@ Emergency only: `railway up --detach` from a linked cwd. See
 `docs/railway-autodeploy.md`.
 
 Env on Railway (never commit): `THINK_URL`, `THINK_STATUS_URL`,
-`THINK_TOKEN`. Doppler configs `jawaun-personal` and
+`THINK_TOKEN`, `TYPESAFE_API_KEY`. Without the TypeSafe key the
+field walks on today's heuristics and telemetry `jev` reads `off`.
+Doppler configs `jawaun-personal` and
 `research_derived_experiments` if a new secret is needed.
 
 ## Extension points

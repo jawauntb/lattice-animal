@@ -279,6 +279,10 @@ body {
   background: rgba(160, 220, 255, 0.85);
   box-shadow: 0 0 8px rgba(160, 220, 255, 0.55);
 }
+.legend .dot.jev {
+  background: rgba(186, 168, 232, 0.9);
+  box-shadow: 0 0 8px rgba(186, 168, 232, 0.5);
+}
 
 /* ── Telemetry ───────────────────────────────────────────────────────── */
 .telemetry {

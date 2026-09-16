@@ -138,6 +138,17 @@ regress any of these.
   cut). Telemetry `wave` is mean beta coherence. `window.__la.wave()`
   dumps per-animal coherence.
 
+**Jev (TypeSafe System One)**
+- Parallel typed decisions over a compact field snapshot. Eat /
+  compete nouls gate seam ecology. Act choice blends wander /
+  spawn / fission rates. Morph choice may set the morphospace
+  pointer unless the viewer already tapped a chip.
+- `POST /decide` proxies to `api.typesafe.ai/v1/systemone`.
+  Questions live on the server. No key → 503, field unchanged,
+  telemetry `jev` reads `off`.
+- Jev does not generate text and does not place cells off-grid.
+  `window.__la.jev()` dumps the last decision.
+
 **Narrator**
 - Bottom verse becomes a live narrator line in a readable glass pill
   (sits above the drawer; cream type; wraps on phones)
