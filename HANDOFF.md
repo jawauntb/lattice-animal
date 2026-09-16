@@ -6,7 +6,9 @@ continue without breaking what's already working.*
 
 Read this file in full. Then read, in order:
 `INSTRUCTIONS_AND_INSPIRATION.md`, `AGENTS.md`, `SYSTEM_DESIGN.md`,
-`README.md`. Then start.
+`README.md`. Then start. If you are helping Jawaun share the project,
+`README.md` is the public story and `SYSTEM_DESIGN.md` is the
+architecture + limits. Keep both true to the code.
 
 Owner: Jawaun Brown (`jawaun.brown95@gmail.com`).
 Live: https://latticeanimal-production.up.railway.app

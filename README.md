@@ -14,6 +14,11 @@ the polyomino as a traveling wave — analog add and cancel at the seams.
 
 Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
 
+**Share this.** Live demo first. Then this README. Architecture and
+limits: [`SYSTEM_DESIGN.md`](SYSTEM_DESIGN.md). Vision and citations:
+[`INSTRUCTIONS_AND_INSPIRATION.md`](INSTRUCTIONS_AND_INSPIRATION.md).
+Source: [jawauntb/lattice-animal](https://github.com/jawauntb/lattice-animal).
+
 ## How it works
 
 Nothing talks. A mind sees only the Voronoi neighbors around it and
@@ -51,6 +56,34 @@ After that the field does not freeze.
 
 Every state is still a lattice animal: cells on a shared gauge, bonded
 4‑adjacent. Waves do not take anyone off the grid.
+
+## Numbers on the page
+
+| Key | Meaning |
+| --- | --- |
+| minds | candidate cells |
+| committed | locked to the shared gauge |
+| animals | separate 4‑connected bodies |
+| largest | cells in the biggest body |
+| entropy | mean offset from the assigned cell (0 is still) |
+| V | mean voltage of committed minds |
+| χ | peak of the concern field (1 when quiet) |
+| width | how wide the compatible rotation family still is |
+| loop | mean times the fly circuit is reused this tick |
+| think | `opening` (no GPU yet), `L4 N` (a letter landed), or `local` |
+| wave | mean beta coherence. Near 1, one pattern holds the body |
+
+## What this is not
+
+- Not a genome. Species are causal clocks and voices, not Darwinian
+  evolution.
+- Not predation off the grid. Eating rewrites lineage. Competing opens
+  a neck. The squares stay.
+- Not a server world. Persistence is `localStorage` on this browser
+  (`la:field:v3`, about three days). The animals do not keep living
+  on Railway while you are away.
+- Not a full human connectome. Two compiled fly motifs (47 and 754
+  neurons) from Janelia `male-cns:v1.0` (CC‑BY).
 
 ## What you're watching
 
@@ -130,24 +163,21 @@ Once ~85% of the field has committed, the ecology takes over:
 Each animal has a species based on its hue. Ten species are procedurally
 voiced with Web Audio — no audio files ship with the site.
 
-| Species | Hue | Voice |
-| --- | --- | --- |
-| Lion | salmon | sawtooth roar with 22 Hz growl LFO |
-| Parakeet | cyan | 5‑note triangle trill |
-| Wolf | periwinkle | sine howl gliding 500→190 Hz |
-| Elephant | azure | brass‑bandpass trumpet |
-| Whale | orchid | 180→140 Hz sine song with 3 Hz FM |
-| Frog | spring | 2–3 low square ribbits |
-| Owl | mint | two soft sine hoots |
-| Dolphin | amber gold | high descending click |
-| Cricket | lemon | 4 tight ~5 kHz pulses |
-| Sparrow | lilac | 3‑note triangle warble |
+| Species | Hue | Voice | What it causes |
+| --- | --- | --- | --- |
+| Lion | salmon | sawtooth roar | depolarizes neighbors; fastest wave |
+| Parakeet | cyan | triangle trill | spawn bias, encroaches |
+| Wolf | periwinkle | sine howl | long‑range V matching |
+| Elephant | azure | brass trumpet | anchors neighbors' V |
+| Whale | orchid | low sine song | slow synchrony; slowest wave |
+| Frog | spring | square ribbits | rhythmic V pulse |
+| Owl | mint | soft hoots | settles seekers faster |
+| Dolphin | amber gold | descending click | fastest neighbor scan; deepest K |
+| Cricket | lemon | high pulses | raises the V noise floor |
+| Sparrow | lilac | triangle warble | brief coordination bursts |
 
-Rose and ember hues stay silent — the quiet species. Species also
-differ by *what they cause*: lion depolarizes neighbors, whale keeps a
-long slow clock, dolphin loops the circuit deepest. Those clocks set
-the wave tempo — whale slow, lion fast — same fly weights, different
-return time.
+Rose and ember hues stay silent — the quiet species. Same fly weights;
+the species clock is how often those weights return.
 
 Sounds trigger on commit (after the mind has a color), growth, merger,
 fission, death, a walk, and a living-phase call every few seconds so a
@@ -203,8 +233,9 @@ The demo weaves in ideas from a survey of CIMC research documents:
 - `d3-delaunay` from `public/vendor/` (no CDN on the hot path) for Voronoi
 - Web Audio for procedural species voices
 - `express` + `compression` — served statically
-- Deployed on Railway (`node server.js` at `$PORT`, `/healthz` for the
-  health check)
+- Deployed on Railway (`node server.js` at `$PORT`, `/healthz`)
+- Optional Modal L4 behind `/think` (`THINK_URL`, `THINK_TOKEN`)
+- Persistence: browser `localStorage` only (`la:field:v3`)
 
 ## Running locally
 
