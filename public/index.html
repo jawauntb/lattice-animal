@@ -39,7 +39,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=15" />
+<link rel="stylesheet" href="/style.css?v=16" />
 </head>
 <body>
   <canvas id="stage"></canvas>
@@ -90,6 +90,8 @@
       <span><b>animal</b> — 2+ committed minds bonded 4‑adjacent</span></div>
     <div class="row"><span class="dot circuit"></span>
       <span><b>circuit</b> — a fly heading circuit thinking inside the mind</span></div>
+    <div class="row"><span class="dot wave"></span>
+      <span><b>wave</b> — analog compute: beta walks the body, gamma reports the edge</span></div>
     <div class="sep"></div>
     <div class="section-title">controls</div>
     <button class="row keys tappable" data-action="pause"><kbd>space</kbd><span>pause / resume</span></button>
@@ -111,6 +113,7 @@
     <div class="kv"><span class="k">width</span><span class="v" id="t-width">–</span></div>
     <div class="kv"><span class="k">loop</span><span class="v" id="t-loop">–</span></div>
     <div class="kv"><span class="k">think</span><span class="v" id="t-think">–</span></div>
+    <div class="kv"><span class="k">wave</span><span class="v" id="t-wave">–</span></div>
   </aside>
 
   <footer class="chrome bottom">
@@ -140,6 +143,8 @@
         Inside each mind, a fly heading circuit loops on the page.
         A slower thought, 754 neurons on an L4, waits until the field
         is born, then writes back every few seconds. The page never waits.
+        Once a body exists, that heading bump walks the polyomino as a
+        traveling wave. Two animals add or cancel at the seam.
       </p>
       <div class="drawer-log" id="drawer-log">
         <div class="drawer-log-empty">no events yet — the field is warming up.</div>
@@ -219,6 +224,12 @@
           is a compiled heading circuit from the Janelia male CNS (EPG, PEN,
           PEG, Delta7). It loops <em>K</em> times each tick and writes into
           that cell's voltage. A cream ring means a thought just closed.</li>
+        <li><strong>Traveling wave</strong> — the circuit's heading bump walks
+          the animal as a slow <em>beta</em> stencil and a faster <em>gamma</em>
+          report (Miller, Brincat &amp; Roy 2026). Cool pearls ride the gold
+          bonds. At a seam the waves add (one lineage eats another) or cancel
+          (a neck lets go). When one pattern organizes the whole body, that
+          is the higher-order animal.</li>
         <li><strong>Narrator pin</strong> — when the verse names an event, a
           cream mark sits on the field at the place that made it true. Tap
           a line in the log to see it again.</li>
@@ -239,6 +250,7 @@
         <li><strong>width</strong> — how wide the compatible rotation family still is. Narrow means the gauge has committed; wide means it is still w‑maxing.</li>
         <li><strong>loop</strong> — mean times the fly circuit is reused this tick. Dolphins think deeper; whales think slower.</li>
         <li><strong>think</strong> — <em>opening</em> while the field is being born (no GPU yet); <em>L4 N</em> when a delayed letter from the Modal GPU arrives; <em>local</em> when only the on-page reflex is running.</li>
+        <li><strong>wave</strong> — mean beta coherence across animals. Near 1, one traveling pattern holds the body.</li>
       </ul>
 
       <h3>How to touch it</h3>
@@ -252,7 +264,8 @@
       <p class="attribution">
         Movement dynamics inspired by DVFP (Dynamical Voronoi Fokker‑Planck) and
         the ensemble‑governance framing of Structural Intelligence. Aesthetic
-        borrowed from <a href="https://objetdart-production.up.railway.app/tissue" target="_blank" rel="noopener">objetd'art tissue / cells / stars</a>.
+        borrowed from <a href="https://objetdart-production.up.railway.app/tissue" target="_blank" rel="noopener">objetd'art tissue / cells / stars / interference</a>.
+        Traveling waves after Miller, Brincat &amp; Roy, <em>Analog Cognition and Consciousness</em>, J. Neurosci. (2026).
         Source on
         <a href="https://github.com/jawauntb/lattice-animal" target="_blank" rel="noopener">GitHub</a>.
       </p>
@@ -266,7 +279,7 @@
     }
   }
   </script>
-  <script type="module" src="/main.js?v=15"></script>
+  <script type="module" src="/main.js?v=16"></script>
   <script>
     (function () {
       const scrim = document.getElementById('modal-scrim');

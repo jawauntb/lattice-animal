@@ -139,7 +139,25 @@ export function stepMind(mind, drive, speciesKey, frame) {
   // A thought is a bump: one cell much brighter than the mean.
   mind.thought = clamp1((peak - mind.circuitE) * 1.35);
   mind.V = clamp1(mind.V + 0.032 * sum);
+  // Heading bump on the EPG ring — the circuit's own traveling wave.
+  let hx = 0, hy = 0, hm = 0;
+  const epg = byType.get("EPG") || [];
+  for (let i = 0; i < epg.length; i++) {
+    const idx = epg[i];
+    const a = v[idx];
+    const nd = graph.nodes[idx];
+    hx += nd.x * a;
+    hy += nd.y * a;
+    hm += a < 0 ? -a : a;
+  }
+  mind.heading = Math.atan2(hy, hx);
+  mind.headingMag = epg.length ? Math.min(1, hm / epg.length) : 0;
   return sum;
+}
+
+export function headingOf(mind) {
+  if (!mind) return { ang: 0, mag: 0 };
+  return { ang: mind.heading || 0, mag: mind.headingMag || 0 };
 }
 
 const THINK = {

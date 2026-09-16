@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (iter 15 — verse speed, hide chrome, nacre).
+Last updated: 2026‑09‑15 (iter 16 — traveling waves / analog compute).
 
 ---
 
@@ -212,7 +212,9 @@ every 4 s to a Modal L4 running `modal_mind/fly-deep.json` (754
 neurons, 7200 synapses). The GPU readout writes into `mind.V`. The
 page never awaits the letter. A websocket would pin the L4 and break
 scale-to-zero. If the GPU is cold or unset, the local reflex stays.
-`draw` still paints the small constellation.
+`draw` still paints the small constellation. After animals form,
+`updateWaves` walks the heading bump across the polyomino (beta
+stencil, gamma report) and `tryWaveEcology` adds or cancels at seams.
 
 ### Voices — `public/audio.js`
 

@@ -227,10 +227,14 @@ building decoration. Concretely:
 ### Tier 1 — direct projections of V
 
 - [x] **Persistence to localStorage** — shipped (2026‑09‑15 session).
-- [ ] **Domain‑wall seam** — code path exists. Not seen on a two‑animal seam.
+- [x] **Domain‑wall seam** — traveling beta/gamma add or cancel at
+      the Voronoi seam (Miller 2026). Cool pearl on constructive;
+      coral on cancel. Still a lattice animal: the wave walks
+      4‑adjacent cells.
 - [ ] **Stability‑gated brightening** — `vStable` exists. Cilia do not read as a temporal ensemble.
 - [ ] **Anticipatory spawn glow** — gated on χ > 1.18. Not seen before a birth.
-- [ ] **Seam‑consistency shimmer for merges** — same as the domain wall; not seen.
+- [x] **Seam‑consistency shimmer for merges** — seam color follows
+      the analog sum, not just |ΔV|.
 - [ ] **Moved‑bottleneck load‑bearing pulse** — `bottleneckIdx` exists. Not seen migrating.
 
 ### Tier 1.5 — Bennett & Levin direct borrows
@@ -286,22 +290,20 @@ building decoration. Concretely:
       to. Tapping one biases the spawn dynamics toward that
       inhabitant of the latent space.
 
-- [ ] **1st‑order‑self / 2nd‑order‑self** (Bennett). Mature animals
-      (size ≥ 8, age ≥ 30 s) develop a 2nd‑order‑self: they predict
-      what their neighbor animals will do next tick, and pre‑adjust.
-      Rendered as a faint predictive ghost of the neighbor animal
-      just outside the current animal's boundary. Simple 1st‑order
-      animals only ghost their own next step.
+- [x] **1st‑order‑self / 2nd‑order‑self** (Bennett + Miller). A body
+      whose beta coherence stays high is *integrated*: its predictive
+      ghosts reach farther. That is the higher-order animal — not
+      more cells, one traveling pattern. First-order bodies still
+      only ghost their own next step.
 
 ### Tier 2 — new mechanics enabled by V
 
-- [ ] **Tribes / relations / predation (Levin invasion phase).** When
-      an animal grows past a threshold and its V is "invasive," it
-      overexpresses connexins — its border bond amplitude ramps up,
-      it starts matching V with the neighboring animal, and either
-      absorbs it (compatible species) or triggers a defensive
-      depolarization from the target. Two species with incompatible
-      resting V behave as rivals; two with compatible V form tribes.
+- [x] **Tribes / relations / predation (Levin + Miller).**
+      Constructive interference + a size/coherence advantage writes
+      the winner's color and V into the smaller body (eat).
+      Destructive interference uncommits a neck (compete). Compatible
+      clocks lock; incompatible clocks cancel. Still cells on a
+      gauge — only the lineage and the neck change.
 - [ ] **Pull‑to‑split by touch.** Long‑press a bond to force it into
       a large ΔV, which gates it shut; the animal splits along that
       edge. Works on desktop and mobile.

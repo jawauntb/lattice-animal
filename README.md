@@ -29,7 +29,13 @@ Built for CIMC's *Lattice Animals* hackathon (Sep 26, 2026, San Francisco).
   the polyomino's actual edges. Different animals show up as different
   colors from a 12‑hue palette. Opacity and width follow |ΔV| across
   the bond: matched voltage is open; a large drop gates the filament
-  shut (Levin gap‑junction conductance).
+  shut (Levin gap‑junction conductance). A cool pearl rides each bond
+  when a traveling wave is walking the body.
+- **Traveling waves** — the fly heading bump leaves the cell and walks
+  the polyomino (Miller, Brincat & Roy 2026). Slow *beta* is the
+  stencil; faster *gamma* is the edge report. At a seam they add
+  (one lineage writes its voltage into another) or cancel (a neck
+  lets go). Telemetry `wave` is mean beta coherence.
 - **V ring** — a thin teal (hyperpolarized) or coral (depolarized) ring
   on every mind. The telemetry `V` readout is the mean voltage of
   committed cells.

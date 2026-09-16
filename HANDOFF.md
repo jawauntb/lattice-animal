@@ -128,6 +128,11 @@ regress any of these.
   websocket: a held socket keeps the L4 awake and kills scale-to-zero.
   The page never waits on the letter. Telemetry reads `opening`, then
   `L4 754` when a letter lands, `local` if only the reflex is running.
+- Traveling waves (Miller 2026): the EPG heading bump walks the
+  polyomino as beta; gamma is gated by that stencil. Cool pearls
+  ride gold bonds. Seams add (lineage takeover) or cancel (neck
+  cut). Telemetry `wave` is mean beta coherence. `window.__la.wave()`
+  dumps per-animal coherence.
 
 **Narrator**
 - Bottom verse becomes a live narrator line in a readable glass pill

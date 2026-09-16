@@ -275,6 +275,10 @@ body {
   background: transparent;
   box-shadow: 0 0 0 1.4px rgba(242, 238, 230, 0.55), 0 0 7px rgba(150, 178, 226, 0.4);
 }
+.legend .dot.wave {
+  background: rgba(160, 220, 255, 0.85);
+  box-shadow: 0 0 8px rgba(160, 220, 255, 0.55);
+}
 
 /* ── Telemetry ───────────────────────────────────────────────────────── */
 .telemetry {

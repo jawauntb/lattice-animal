@@ -64,7 +64,7 @@ Everything visual here draws from Jawaun's own gallery,
 | **/cells** | Nuclei with a warm inner glow, tiny organelles orbiting inside committed cells, soft radial cilia that sway when free and reach when settled, wispy hair‑like edges |
 | **/stars** | The cosmic ground — deep midnight blue, drifting dust, twinkles, subtle warm ambient radial gradient behind bodies, the sense of a living cosmos |
 | **/waves** | Soft translucent layered forms, gentle overlapping ellipses (used for the animal halos) |
-| **/interference** | (Not yet borrowed, but on the list) — patterns that emerge from overlapping waves |
+| **/interference** | Traveling beta/gamma on the polyomino; seams add or cancel (Miller 2026 analog compute) |
 | **/quarks, /atoms, /dna** | Reference for interaction paradigms — pluckable filaments, particle interactions, structure that responds to touch |
 | **/light** | The `Listen` button pattern — turn on a soundscape that plays music from what's on screen |
 
@@ -498,6 +498,23 @@ the audio context.
 
 Events → sound: commit (soft), growth milestone (full‑voice), merger,
 fission (startled), death (fading tail). Throttled per species.
+
+## Analog waves on the animal (Miller 2026)
+
+Earl K. Miller, Scott L. Brincat, and Jefferson E. Roy, "Analog
+Cognition and Consciousness," *Journal of Neuroscience* 46(33)
+e0711262026 (2026). Synapses store the motif; traveling waves decide
+which representations are awake. Slow alpha/beta is the stencil
+(memory, goals). Faster gamma is the sensory report, allowed only
+where the stencil is open. Where waves meet they add and subtract.
+A globally integrated wave is the higher-order body.
+
+On this field that is still a lattice animal: the fly heading circuit
+is the synapse. Its bump walks the polyomino as beta. Gamma is gated
+by that stencil and reports χ at the edge. At a Voronoi seam the
+analog sum either writes one lineage into another (eat) or opens a
+neck (compete). Coherence across the body is reafference — the wave
+finding one animal.
 
 ## Design principles (bake into every change)
 

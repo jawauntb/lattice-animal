@@ -1,6 +1,6 @@
 import { Delaunay } from "d3-delaunay";
-import * as audio from "/audio.js?v=15";
-import * as fly from "/connectome.js?v=15";
+import * as audio from "/audio.js?v=16";
+import * as fly from "/connectome.js?v=16";
 
 // ─── Palette (drawn from objetd'art tissue: cool + warm, muted, luminous) ────
 const TINT = [
@@ -100,6 +100,8 @@ const VERSES = [
   "a concern blooms, then the lattice leans toward it",
   "voltage is concern made visible",
   "a fly circuit thinks, then the cell moves",
+  "the same weights, again — a wave, not a deeper net",
+  "where two waves meet they add, or they cancel",
   "to live is to keep deciding together",
   "the vector became a scalar",
   "it doesn't decide, then check. the checking is the deciding",
@@ -145,6 +147,14 @@ const LIFE_PULSE = [
   {
     short: "the field has not gone quiet",
     long: "Stillness on the grid is not silence. The animals are holding a form while they decide whether to grow, walk, or divide.",
+  },
+  {
+    short: "a wave is walking the body",
+    long: "The fly circuit's heading bump is not only inside one cell. It travels the polyomino as a slow stencil, and a faster wave reports what the edge just felt.",
+  },
+  {
+    short: "two animals are computing at the seam",
+    long: "Where their waves overlap they add or cancel. That is analog work — no one cell decides the merge or the fight.",
   },
   {
     short: "voltage drifts through bonds",
@@ -200,6 +210,26 @@ const CFG = {
   valenceN: 7,
   coneScale: 1.5,
   holdMs: 520,
+  // Miller 2026 analog waves: slow beta (goals) stencils faster gamma
+  // (sense). Frequencies are rad/frame. Spatial hop is 0.85 rad/cell.
+  waveHop: 0.85,
+  waveV: 0.012,
+};
+
+// Species clocks for the traveling wave. Slow animals keep a long beta;
+// fast animals run a quicker gamma. Same fly weights, different tempo.
+const WAVE_CLOCK = {
+  whale:    { beta: 0.038, gamma: 0.13 },
+  elephant: { beta: 0.046, gamma: 0.15 },
+  owl:      { beta: 0.052, gamma: 0.17 },
+  wolf:     { beta: 0.060, gamma: 0.19 },
+  sparrow:  { beta: 0.070, gamma: 0.21 },
+  frog:     { beta: 0.078, gamma: 0.24 },
+  cricket:  { beta: 0.088, gamma: 0.27 },
+  dolphin:  { beta: 0.100, gamma: 0.31 },
+  parakeet: { beta: 0.110, gamma: 0.29 },
+  lion:     { beta: 0.118, gamma: 0.34 },
+  _:        { beta: 0.072, gamma: 0.22 },
 };
 
 // Pixel + frame budget for Chrome on a phone. The field remaps into this
@@ -360,6 +390,9 @@ const state = {
   loci: [],                 // narrator marks on the field { x, y, short, kind, born, id }
   locusId: 0,
   gaze: null,               // { x, y, born, kind } — the field leans toward the verse
+  waveCoh: 0,               // mean beta coherence across animals
+  waveByAnimal: new Map(),  // animalId → { coh, integrated, cx, cy, color, n }
+  waveSeams: [],            // { i, j, inter, dV }
 };
 
 // hash → integer in [0, n)
@@ -402,6 +435,9 @@ class Mind {
     this.cancer = false;
     this.cancerAge = 0;
     this.collapse = 0;
+    this.beta = 0;
+    this.gamma = 0;
+    this.waveHop = 0;
   }
 }
 
@@ -624,6 +660,9 @@ function seed(count = CFG.seedCount) {
   state.chiSources.length = 0;
   state.loci.length = 0;
   state.gaze = null;
+  state.waveCoh = 0;
+  state.waveByAnimal.clear();
+  state.waveSeams.length = 0;
   renderLocusPins();
   state.chi = null;
   state.chiW = 0;
@@ -928,6 +967,223 @@ function escapeHtml(s) {
   ));
 }
 
+// ─── Traveling waves (Miller 2026 analog compute, on the polyomino) ──────────
+// Synapses stay the fly circuit. Waves decide which representations are
+// awake. Beta is the slow stencil (memory / goal / species clock). Gamma
+// is the fast sensory report, gated by beta. At a seam they add or cancel.
+const WAVE_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+function updateWaves(neighborsCache) {
+  const minds = state.minds;
+  const by = new Map();
+  const cellMap = new Map();
+  for (let i = 0; i < minds.length; i++) {
+    const m = minds[i];
+    if (m.animalId < 0 || !m.committed) {
+      m.beta = 0;
+      m.gamma = 0;
+      m.waveHop = 0;
+      continue;
+    }
+    if (!by.has(m.animalId)) by.set(m.animalId, []);
+    by.get(m.animalId).push(i);
+    cellMap.set(`${m.gx},${m.gy}`, i);
+  }
+  const next = new Map();
+  const seams = [];
+  let fieldCoh = 0, nA = 0;
+  const t = state.frame;
+  const skip = state.perf.skipHeavy && (t & 1);
+  for (const [id, members] of by) {
+    let cx = 0, cy = 0;
+    for (const i of members) { cx += minds[i].x; cy += minds[i].y; }
+    cx /= members.length;
+    cy /= members.length;
+    let src = members[0], best = Infinity;
+    for (const i of members) {
+      const dx = minds[i].x - cx, dy = minds[i].y - cy;
+      const d = dx * dx + dy * dy;
+      if (d < best) { best = d; src = i; }
+    }
+    const hops = new Map();
+    const q = [src];
+    hops.set(src, 0);
+    while (q.length) {
+      const i = q.shift();
+      const m = minds[i];
+      const h = hops.get(i);
+      for (const [dx, dy] of WAVE_DIRS) {
+        const j = cellMap.get(`${m.gx + dx},${m.gy + dy}`);
+        if (j === undefined || hops.has(j) || minds[j].animalId !== id) continue;
+        hops.set(j, h + 1);
+        q.push(j);
+      }
+    }
+    const sp = audio.speciesForColor(minds[members[0]].animalColor);
+    const clock = WAVE_CLOCK[sp] || WAVE_CLOCK._;
+    let ccos = 0, csin = 0;
+    for (const i of members) {
+      const m = minds[i];
+      const hop = hops.get(i) || 0;
+      m.waveHop = hop;
+      if (skip && m.beta) {
+        ccos += m.beta;
+        csin += m.gamma || 0;
+        continue;
+      }
+      const hd = fly.headingOf(m);
+      const phaseB = t * clock.beta - hop * CFG.waveHop + (hd.ang || 0);
+      const phaseG = t * clock.gamma - hop * 1.35 + (hd.ang || 0) * 2;
+      const env = 0.32 + 0.55 * (m.circuitE || 0.18) + 0.28 * (m.thought || 0) + 0.22 * (hd.mag || 0);
+      m.beta = Math.sin(phaseB) * env;
+      const gate = 0.32 + 0.68 * Math.max(0, m.beta);
+      const sense = 0.35 + 0.65 * clamp((sampleChi(m.x, m.y) - 1) * 1.4, 0, 1);
+      m.gamma = Math.sin(phaseG) * gate * sense;
+      m.V = clamp(m.V + CFG.waveV * m.beta + 0.005 * m.gamma, -1, 1);
+      ccos += Math.cos(phaseB);
+      csin += Math.sin(phaseB);
+    }
+    const coh = Math.hypot(ccos, csin) / members.length;
+    const integrated = members.length >= 5 && coh > 0.60;
+    next.set(id, {
+      coh, integrated, cx, cy,
+      color: minds[members[0]].animalColor,
+      n: members.length,
+      members,
+    });
+    fieldCoh += coh;
+    nA++;
+    for (const i of members) {
+      const m = minds[i];
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const j = cellMap.get(`${m.gx + dx},${m.gy + dy}`);
+        if (j === undefined) continue;
+        const o = minds[j];
+        if (o.animalId === id || o.animalId < 0) continue;
+        seams.push({
+          i, j,
+          inter: m.beta * o.beta + 0.45 * m.gamma * o.gamma,
+          dV: Math.abs((m.V || 0) - (o.V || 0)),
+        });
+      }
+    }
+    if (neighborsCache) {
+      for (const i of members) {
+        const m = minds[i];
+        const N = neighborsCache[i] || [];
+        for (const j of N) {
+          if (j <= i) continue;
+          const o = minds[j];
+          if (!o || o.animalId < 0 || o.animalId === id) continue;
+          seams.push({
+            i, j,
+            inter: m.beta * o.beta + 0.45 * m.gamma * o.gamma,
+            dV: Math.abs((m.V || 0) - (o.V || 0)),
+          });
+        }
+      }
+    }
+  }
+  state.waveByAnimal = next;
+  state.waveSeams = seams;
+  state.waveCoh = nA ? fieldCoh / nA : 0;
+}
+
+function tryWaveEcology() {
+  const seams = state.waveSeams;
+  if (!seams.length) return false;
+  let bestLock = null, bestFight = null;
+  for (const s of seams) {
+    if (s.inter > 0.28 && s.dV < 0.34 && (!bestLock || s.inter > bestLock.inter)) bestLock = s;
+    if (s.inter < -0.26 && (!bestFight || s.inter < bestFight.inter)) bestFight = s;
+  }
+  if (bestLock && Math.random() < 0.11) {
+    const a = state.minds[bestLock.i];
+    const b = state.minds[bestLock.j];
+    if (!a || !b || a.animalId < 0 || b.animalId < 0) return false;
+    const A = state.waveByAnimal.get(a.animalId);
+    const B = state.waveByAnimal.get(b.animalId);
+    if (!A || !B) return false;
+    const winner = A.n >= B.n ? A : B;
+    const loser = winner === A ? B : A;
+    if (winner.n < 3 || loser.n < 2) return false;
+    if (winner.n < loser.n * 1.15 && winner.coh < loser.coh + 0.08) return false;
+    for (const i of loser.members) {
+      const m = state.minds[i];
+      if (!m) continue;
+      m.animalColor = winner.color;
+      m.lastAnimalColor = winner.color;
+      syncRestingV(m, winner.color);
+      m.V = clamp(m.V + (winner === A ? a.V : b.V) * 0.18, -1, 1);
+    }
+    const sp = audio.speciesForColor(winner.color);
+    if (sp) audio.play(sp, "merger");
+    emitChi(loser.cx, loser.cy, 1.15, 96);
+    narrateLife({
+      short: "one body ate another by speaking its wave",
+      long: "Their waves added at the seam. The larger, more coherent animal wrote its voltage into the smaller one. The cells stayed on the grid. The lineage changed.",
+      kind: "animal",
+      x: (a.x + b.x) * 0.5,
+      y: (a.y + b.y) * 0.5,
+    });
+    return true;
+  }
+  if (bestFight && Math.random() < 0.09) {
+    const a = state.minds[bestFight.i];
+    const b = state.minds[bestFight.j];
+    if (!a || !b) return false;
+    const cut = Math.abs(a.beta) < Math.abs(b.beta) ? a : b;
+    if (cut.animalId < 0) return false;
+    const body = state.waveByAnimal.get(cut.animalId);
+    if (!body || body.n < 6) return false;
+    cut.committed = false;
+    cut.settle = 0;
+    cut._assigned = false;
+    cut.vx += (Math.random() - 0.5) * 2.2;
+    cut.vy += (Math.random() - 0.5) * 2.2;
+    const sp = voiceOf(cut);
+    if (sp) audio.play(sp, "fission");
+    emitChi(cut.x, cut.y, 1.05, 80);
+    narrateLife({
+      short: "two waves cancelled, and a neck let go",
+      long: "The analog sum at the seam went negative. A bridge cell released so the two clocks could stop tearing the same body.",
+      kind: "life",
+      x: cut.x, y: cut.y,
+    });
+    return true;
+  }
+  return false;
+}
+
+function detectWaveNarration() {
+  const n = state.narration;
+  if (!n.flags.waves && state.waveCoh > 0.34 && state.animalCount >= 1) {
+    n.flags.waves = true;
+    const here = mindsCentroid(m => m.animalId >= 0);
+    narrate({
+      short: "the circuits started sending a wave through the body",
+      long: "Each fly heading circuit already had a traveling bump. Now that bump walks the polyomino: a slow stencil for what the animal remembers, a faster wave for what the edge just felt. Where two animals meet, the waves add or cancel.",
+      kind: "note",
+      x: here.x, y: here.y,
+    });
+  }
+  for (const rec of state.waveByAnimal.values()) {
+    if (!rec.integrated || rec.n < 5) continue;
+    const flag = `wave_one_${rec.color}`;
+    if (n.flags[flag]) continue;
+    n.flags[flag] = true;
+    narrate({
+      short: "the waves found one body",
+      long: "A single traveling pattern now organizes the whole animal. That is the higher-order moment: not more cells, a globally integrated wave.",
+      kind: "animal",
+      x: rec.cx, y: rec.cy,
+    });
+    const sp = audio.speciesForColor(rec.color);
+    if (sp) audio.play(sp, "growth");
+    break;
+  }
+}
+
 // ─── Living dynamics ─────────────────────────────────────────────────────────
 // After the initial chaos → alignment → commitment arc, the field becomes a
 // living ecology: animals wander a cell at a time, spawn new minds from
@@ -1001,6 +1257,9 @@ function updateLivingPhase() {
   // Occasionally consider fission
   if (Math.random() < 0.006 && state.largestAnimal >= 8) {
     did = tryFission() || did;
+  }
+  if (state.waveSeams.length && Math.random() < 0.22) {
+    did = tryWaveEcology() || did;
   }
   // Occasionally consider dissolving very-old wandering uncommitted minds
   if (Math.random() < 0.02 && minds.length > LIFE.minMinds) {
@@ -1725,6 +1984,9 @@ function step() {
   state.animalCount = animalCount;
   state.largestAnimal = animalSize.reduce((a, b) => Math.max(a, b), 0);
 
+  updateWaves(neighborsCache);
+  detectWaveNarration();
+
   for (const m of freshCommits) {
     const sp = voiceOf(m);
     if (sp) audio.play(sp, "commit");
@@ -2206,6 +2468,10 @@ function drawMembranes() {
       if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.closePath();
+    if (m.committed && m.animalId >= 0) {
+      const pulse = 0.08 * Math.abs(m.gamma || 0) + 0.04 * Math.max(0, m.beta || 0);
+      alpha = Math.min(0.62, alpha + pulse);
+    }
     const pearl = m.committed && !state.perf.skipHeavy
       ? (m.animalColor || TINT[m.tintIdx])
       : null;
@@ -2292,10 +2558,13 @@ function drawAnimalOutline() {
       }
       if (bestJ >= 0 && minds[bestJ].animalId === m.animalId) continue;
       if (bestJ >= 0 && minds[bestJ].animalId >= 0 && minds[bestJ].animalId !== m.animalId) {
-        const dV = Math.abs((m.V ?? 0) - (minds[bestJ].V ?? 0));
-        const shimmer = 0.55 + 0.4 * (0.5 + 0.5 * Math.sin(state.frame * 0.22 + midx * 0.05));
-        ctx.strokeStyle = `rgba(160, 220, 255, ${shimmer})`;
-        ctx.shadowColor = `rgba(160, 220, 255, ${0.55 + 0.4 * dV})`;
+        const o = minds[bestJ];
+        const inter = (m.beta || 0) * (o.beta || 0) + 0.45 * (m.gamma || 0) * (o.gamma || 0);
+        const dV = Math.abs((m.V ?? 0) - (o.V ?? 0));
+        const shimmer = 0.48 + 0.42 * (0.5 + 0.5 * Math.sin(state.frame * 0.22 + midx * 0.05)) + 0.18 * Math.max(0, inter);
+        const hue = inter < -0.08 ? "255, 150, 170" : "160, 220, 255";
+        ctx.strokeStyle = `rgba(${hue}, ${shimmer})`;
+        ctx.shadowColor = `rgba(${hue}, ${0.50 + 0.35 * dV + 0.2 * Math.abs(inter)})`;
         ctx.shadowBlur = 12 + 10 * dV;
         ctx.lineWidth = 2.1;
         ctx.beginPath();
@@ -2396,6 +2665,16 @@ function drawBonds() {
         ctx.moveTo(m.x, m.y);
         ctx.lineTo(o.x, o.y);
         ctx.stroke();
+        const wave = 0.5 + 0.5 * ((m.beta || 0) + (o.beta || 0)) * 0.5;
+        if (wave > 0.12 && !state.perf.skipHeavy) {
+          const u = 0.5 + 0.38 * ((m.beta || 0) - (o.beta || 0));
+          const px = m.x + (o.x - m.x) * clamp(u, 0.12, 0.88);
+          const py = m.y + (o.y - m.y) * clamp(u, 0.12, 0.88);
+          ctx.fillStyle = `rgba(170, 230, 255, ${0.18 + 0.42 * Math.abs(m.gamma || 0)})`;
+          ctx.beginPath();
+          ctx.arc(px, py, 1.6 + 1.4 * Math.abs(m.beta || 0), 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
     ctx.shadowBlur = 0;
@@ -2710,6 +2989,8 @@ function drawPredictiveGhosts() {
   }
   ctx.save();
   for (const a of cents) {
+    const rec = state.waveByAnimal.get(a.id);
+    if (rec && rec.integrated) a.mature = true;
     if (!a.mature) {
       const nx = Math.cos(state.gauge.theta) * 6;
       const ny = Math.sin(state.gauge.theta) * 6;
@@ -2730,12 +3011,13 @@ function drawPredictiveGhosts() {
     }
     if (!best) continue;
     const ux = (best.x - a.x) / (bd || 1), uy = (best.y - a.y) / (bd || 1);
+    const lock = rec && rec.integrated ? 1.35 : 1;
     for (const m of a.group) {
-      ctx.strokeStyle = `rgba(${a.color}, 0.32)`;
+      ctx.strokeStyle = `rgba(${a.color}, ${0.32 * lock})`;
       ctx.lineWidth = 1.15;
       ctx.setLineDash([2, 3]);
       ctx.beginPath();
-      ctx.arc(m.x + ux * 14, m.y + uy * 14, 4.2, 0, Math.PI * 2);
+      ctx.arc(m.x + ux * 14 * lock, m.y + uy * 14 * lock, 4.2, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -2780,6 +3062,8 @@ function tick() {
   if (loopEl) loopEl.textContent = cs.ready ? `${cs.k.toFixed(1)}×` : "–";
   const thinkEl = el("t-think");
   if (thinkEl) thinkEl.textContent = cs.gpu ? `L4 ${cs.deepN}` : (cs.think || "local");
+  const waveEl = el("t-wave");
+  if (waveEl) waveEl.textContent = state.waveCoh ? state.waveCoh.toFixed(2) : "0.00";
   if (state.frame % 20 === 0) updateMorphospace();
 }
 function setVerseText(text, instant) {
@@ -2925,6 +3209,15 @@ window.__la = Object.assign(window.__la || {}, {
   toggleTemporalGap,
   audioInfo() {
     return { muted: audio.isMuted(), ready: audio.isReady(), state: audio.ctxState(), last: audio.lastCall() };
+  },
+  wave() {
+    return {
+      coh: state.waveCoh,
+      seams: state.waveSeams.length,
+      animals: [...state.waveByAnimal.values()].map(r => ({
+        n: r.n, coh: +r.coh.toFixed(3), integrated: r.integrated,
+      })),
+    };
   },
   vStats() {
     const vs = state.minds.map(m => m.V);
