@@ -525,7 +525,9 @@ finding one animal.
 3. **No brown/beige/generic warm slop.** Cool luminous cosmic + tissue
    palette. Warmth only as accent from committed cells and animal auras.
 4. **Mobile first, always.** Every control needs to work on touch too.
-   Chrome collapses on narrow viewports; a ⌇ button reveals it.
+   Chrome collapses on narrow viewports; a ⌇ button reveals it. The
+   field must not remap or strobe when the URL bar hides — cover the
+   new pixels, leave the minds where they are.
 5. **The interface is quiet.** Chrome fades away; the field is the
    subject. Legend, telemetry, and the narrator drawer all sit in
    translucent glass panels behind the field.

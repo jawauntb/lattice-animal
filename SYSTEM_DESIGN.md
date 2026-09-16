@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑15 (iter 17 — docs match the wave field).
+Last updated: 2026‑09‑15 (iter 18 — phone field no longer remaps on the URL bar).
 
 This file is the architecture you hand a collaborator. `README.md` is
 the public story. `INSTRUCTIONS_AND_INSPIRATION.md` is the aesthetic
@@ -40,6 +40,7 @@ lattice_animal/
 ├── railway.json                       ← Railway build/deploy config
 ├── nixpacks.toml                      ← Nixpacks node20 install/start
 ├── docs/railway-autodeploy.md         ← GitHub App + webhook fallback
+├── tests/mobile-budget.test.mjs       ← URL-bar / skipHeavy predicates
 ├── .github/workflows/deploy.yml       ← optional RAILWAY_WEBHOOK ping
 ├── .gitignore
 ├── icons/
@@ -53,6 +54,7 @@ lattice_animal/
     ├── index.html                     ← shell, modal, drawer, ?v= cache bust
     ├── style.css
     ├── main.js                        ← sim + render + waves + input
+    ├── budget.js                      ← phone-stable resize / skipHeavy
     ├── connectome.js                  ← local reflex + /think client
     ├── audio.js                       ← voices + species policies
     ├── data/fly-cx.json               ← compiled heading motif (CC‑BY Janelia)
@@ -94,7 +96,7 @@ lattice_animal/
   - `.narrator-drawer` — log + morphospace chips
   - `#narrator-loci` — pins on the field
   - import map: `d3-delaunay` → `/vendor/d3-delaunay.js`
-  - CSS/JS cache bust: `?v=16` (bump when those files change)
+  - CSS/JS cache bust: `?v=17` (bump when those files change)
   - inline script talks to `window.__la`
 
 ### Styling
@@ -113,8 +115,12 @@ lattice_animal/
    per hue (`bakeNacre` / `nacreFill`).
 3. `CFG` — gauge, motion, commit, V leak, χ grid, wave hop / V write.
    `WAVE_CLOCK` — per‑species beta/gamma rad/frame.
-4. `BUDGET` — CSS/pixel/dpr/frame caps; `skipHeavy` drops expensive
-   glows.
+4. `BUDGET` + `budget.js` — CSS/pixel/dpr/frame caps. `skipHeavy`
+   needs four slow frames on a phone (six on desktop) and stays on
+   until ~4 s of calm on coarse pointers so nacre/cilia do not
+   strobe. URL-bar height jitter (<110 px) only restyles the
+   canvas; it does not remap minds. The working-hard notice has a
+   20 s cooldown. Full-field locus hush is desktop-only.
 5. `state` — see State shape below.
 6. `Mind` — position, gauge cell, commit, animal identity, V,
    valence[7], cancer, beta/gamma/waveHop, heading from the circuit.
@@ -227,7 +233,7 @@ state = {
   chi, chiW, chiH, chiSources[],
   waveCoh, waveByAnimal: Map, waveSeams[],
   loci[], gaze, bottleneckIdx, regenUrgent,
-  perf: { lastMs, skipHeavy, streak },
+  perf: { lastMs, skipHeavy, streak, calm, noticeAt },
   _delaunay, _voronoi, _neighbors,
 }
 

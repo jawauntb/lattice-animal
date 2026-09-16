@@ -236,6 +236,9 @@ The demo weaves in ideas from a survey of CIMC research documents:
 - Deployed on Railway (`node server.js` at `$PORT`, `/healthz`)
 - Optional Modal L4 behind `/think` (`THINK_URL`, `THINK_TOKEN`)
 - Persistence: browser `localStorage` only (`la:field:v3`)
+- Phone budget: URL-bar height jitter does not remap the field.
+  If a frame runs long the extra glows stay dim until the screen
+  is calm, so the lattice does not strobe.
 
 ## Running locally
 

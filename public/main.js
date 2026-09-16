@@ -1,6 +1,14 @@
 import { Delaunay } from "d3-delaunay";
-import * as audio from "/audio.js?v=16";
-import * as fly from "/connectome.js?v=16";
+import * as audio from "/audio.js?v=17";
+import * as fly from "/connectome.js?v=17";
+import {
+  isUrlBarJitter,
+  nextSkipHeavy,
+  noticeDue,
+  locusHoldFrames,
+  lifeNarrateGap,
+  narrateGap,
+} from "/budget.js?v=17";
 
 // ─── Palette (drawn from objetd'art tissue: cool + warm, muted, luminous) ────
 const TINT = [
@@ -256,9 +264,21 @@ function coarsePointer() {
   return window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
 }
 
+let viewOverride = null;
+
+function viewBox() {
+  if (viewOverride) return viewOverride;
+  const vv = window.visualViewport;
+  if (vv && vv.width && vv.height) {
+    return { w: Math.max(1, Math.round(vv.width)), h: Math.max(1, Math.round(vv.height)) };
+  }
+  return { w: Math.max(1, window.innerWidth), h: Math.max(1, window.innerHeight) };
+}
+
 function fitView() {
-  viewW = Math.max(1, window.innerWidth);
-  viewH = Math.max(1, window.innerHeight);
+  const box = viewBox();
+  viewW = box.w;
+  viewH = box.h;
   dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, coarsePointer() ? BUDGET.mobileDpr : BUDGET.maxDpr));
   let w = viewW, h = viewH;
   const cssScale = Math.min(1, BUDGET.maxCssW / w, BUDGET.maxCssH / h);
@@ -321,13 +341,27 @@ function noteBlowup(msg, holdMs = 4200) {
   noteBlowup._t = setTimeout(() => { el.hidden = true; }, holdMs);
 }
 
-function resize() {
+function resize(force) {
+  const box = viewBox();
+  // Phone URL chrome jitters height. Cover the pixels; do not remap the field.
+  if (!force && W && coarsePointer()) {
+    const dw = Math.abs(box.w - viewW);
+    const dh = Math.abs(box.h - viewH);
+    if (isUrlBarJitter(dw, dh, true)) {
+      viewW = box.w;
+      viewH = box.h;
+      canvas.style.width = viewW + "px";
+      canvas.style.height = viewH + "px";
+      return;
+    }
+  }
   const oldW = W, oldH = H;
   const fit = fitView();
   W = fit.w;
   H = fit.h;
   const bw = Math.max(1, Math.floor(W * dpr));
   const bh = Math.max(1, Math.floor(H * dpr));
+  const backingChanged = canvas.width !== bw || canvas.height !== bh;
   if (canvas.width !== bw) canvas.width = bw;
   if (canvas.height !== bh) canvas.height = bh;
   canvas.style.width = viewW + "px";
@@ -335,8 +369,8 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (typeof state !== "undefined") {
     remapField(oldW, oldH, W, H);
-    makeDust();
-    if (fit.scaled) {
+    if (backingChanged && typeof makeDust === "function") makeDust();
+    if (fit.scaled && backingChanged) {
       state.perf.scaledAt = performance.now();
       noteBlowup("the field was scaled so this screen stays snappy", 6400);
     }
@@ -386,7 +420,7 @@ const state = {
   chiW: 0,
   chiH: 0,
   chiSources: [],           // { cx, cy, amp, sigma, decay }
-  perf: { lastMs: 0, skipHeavy: false, streak: 0 },
+  perf: { lastMs: 0, skipHeavy: false, streak: 0, calm: 0, noticeAt: 0 },
   loci: [],                 // narrator marks on the field { x, y, short, kind, born, id }
   locusId: 0,
   gaze: null,               // { x, y, born, kind } — the field leans toward the verse
@@ -872,6 +906,14 @@ function showLocus(entry) {
     kind: entry.kind,
     born: state.frame,
   };
+  const hold = locusHoldFrames(coarsePointer());
+  const live = state.loci[0];
+  if (live && state.frame - live.born < hold) {
+    live.short = loc.short;
+    live.kind = loc.kind;
+    renderLocusPins();
+    return;
+  }
   state.loci = state.loci.filter(l => state.frame - l.born < 220);
   state.loci.unshift(loc);
   if (state.loci.length > 2) state.loci.length = 2;
@@ -902,15 +944,16 @@ function renderLocusPins() {
 }
 
 function narrateLife({ short, long, kind = "life", x, y }) {
-  // Living events are frequent. Keep them readable: one every few seconds.
-  if (state.frame - (state.narration.lastLifeFrame || -1e9) < 28) return;
+  // Living events are frequent. On a phone a half-second pulse strobes the field.
+  const gap = lifeNarrateGap(coarsePointer());
+  if (state.frame - (state.narration.lastLifeFrame || -1e9) < gap) return;
   state.narration.lastLifeFrame = state.frame;
   narrate({ short, long, kind, x, y });
 }
 
 function narrate({ short, long, kind = "note", x, y }) {
-  // Debounce: at least 20 frames between narrations so the reader can catch each.
-  if (state.frame - state.narration.lastNarratedFrame < 6) return;
+  const gap = narrateGap(coarsePointer());
+  if (state.frame - state.narration.lastNarratedFrame < gap) return;
   const at = locateNarration(x, y);
   state.narration.lastNarratedFrame = state.frame;
   state.narration.current = short;
@@ -2081,14 +2124,16 @@ function drawLoci() {
   const tint = locusTint(loc.kind);
   const reach = Math.max(W, H) * 0.96;
 
-  // Multiply-hush: the night itself leans away so this cell can be read.
-  ctx.globalCompositeOperation = "multiply";
-  const hush = ctx.createRadialGradient(loc.x, loc.y, 22, loc.x, loc.y, reach);
-  hush.addColorStop(0, "rgb(255,255,255)");
-  hush.addColorStop(0.2, `rgb(${240 - 18 * t}, ${242 - 16 * t}, ${250 - 10 * t})`);
-  hush.addColorStop(1, `rgb(${150 - 28 * t}, ${152 - 24 * t}, ${172 - 16 * t})`);
-  ctx.fillStyle = hush;
-  ctx.fillRect(0, 0, W, H);
+  // Full-field hush strobes a phone. Keep the pin; skip the multiply wash.
+  if (!state.perf.skipHeavy && !coarsePointer()) {
+    ctx.globalCompositeOperation = "multiply";
+    const hush = ctx.createRadialGradient(loc.x, loc.y, 22, loc.x, loc.y, reach);
+    hush.addColorStop(0, "rgb(255,255,255)");
+    hush.addColorStop(0.2, `rgb(${240 - 18 * t}, ${242 - 16 * t}, ${250 - 10 * t})`);
+    hush.addColorStop(1, `rgb(${150 - 28 * t}, ${152 - 24 * t}, ${172 - 16 * t})`);
+    ctx.fillStyle = hush;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   // Well of attention — additive, cool, never a second warm body.
   ctx.globalCompositeOperation = "lighter";
@@ -2565,7 +2610,7 @@ function drawAnimalOutline() {
         const hue = inter < -0.08 ? "255, 150, 170" : "160, 220, 255";
         ctx.strokeStyle = `rgba(${hue}, ${shimmer})`;
         ctx.shadowColor = `rgba(${hue}, ${0.50 + 0.35 * dV + 0.2 * Math.abs(inter)})`;
-        ctx.shadowBlur = 12 + 10 * dV;
+        ctx.shadowBlur = state.perf.skipHeavy ? 0 : 12 + 10 * dV;
         ctx.lineWidth = 2.1;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
@@ -2576,7 +2621,7 @@ function drawAnimalOutline() {
       // Perimeter edge — colored glow, cream inner
       ctx.strokeStyle = `rgba(${color}, 0.75)`;
       ctx.shadowColor = `rgba(${color}, 0.8)`;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = state.perf.skipHeavy ? 0 : 10;
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -3095,12 +3140,31 @@ function frame() {
   }
   const dt = performance.now() - t0;
   state.perf.lastMs = dt;
-  if (dt > BUDGET.frameMs) state.perf.streak++;
-  else state.perf.streak = Math.max(0, state.perf.streak - 1);
+  if (dt > BUDGET.frameMs) {
+    state.perf.streak++;
+    state.perf.calm = 0;
+  } else {
+    state.perf.streak = Math.max(0, state.perf.streak - 1);
+    if (state.perf.streak === 0) state.perf.calm = (state.perf.calm || 0) + 1;
+  }
   const wasHeavy = state.perf.skipHeavy;
-  state.perf.skipHeavy = state.perf.streak >= 2;
-    const scaledRecently = state.perf.scaledAt && (performance.now() - state.perf.scaledAt) < 6400;
-    if (state.frame > 45 && !scaledRecently && (dt > BUDGET.heavyMs || (state.perf.skipHeavy && !wasHeavy))) {
+  const phone = coarsePointer();
+  state.perf.skipHeavy = nextSkipHeavy({
+    skipHeavy: wasHeavy,
+    streak: state.perf.streak,
+    calm: state.perf.calm || 0,
+    coarse: phone,
+  });
+  const now = performance.now();
+  const scaledRecently = state.perf.scaledAt && (now - state.perf.scaledAt) < 6400;
+  if (
+    state.frame > 45
+    && !scaledRecently
+    && state.perf.skipHeavy
+    && !wasHeavy
+    && noticeDue(now, state.perf.noticeAt || 0)
+  ) {
+    state.perf.noticeAt = now;
     noteBlowup("this screen is working hard — some glows were dimmed");
   }
   if (state.frame % 6 === 0) tick();
@@ -3243,7 +3307,15 @@ window.__la = Object.assign(window.__la || {}, {
   noteBlowup,
   budget: BUDGET,
   size() {
-    return { W, H, viewW, viewH, dpr, pixels: W * H * dpr * dpr, lastMs: state.perf.lastMs, skipHeavy: state.perf.skipHeavy };
+    return { W, H, viewW, viewH, dpr, pixels: W * H * dpr * dpr, lastMs: state.perf.lastMs, skipHeavy: state.perf.skipHeavy, calm: state.perf.calm, streak: state.perf.streak };
+  },
+  resize,
+  viewBox,
+  nudgeView(w, h) {
+    viewOverride = { w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) };
+    resize();
+    viewOverride = null;
+    return window.__la.size();
   },
   pickCommitted() {
     const m = state.minds.find(mm => mm.committed && mm.animalId >= 0);
@@ -3649,16 +3721,25 @@ requestAnimationFrame(frame);
 // Some Chrome UI (debug bars, download bars) shifts viewport without firing
 // resize. Poll size and re-fit if it changed.
 setInterval(() => {
-  if (window.innerWidth !== viewW || window.innerHeight !== viewH) resize();
-}, 400);
+  const box = viewBox();
+  if (Math.abs(box.w - viewW) > 2 || Math.abs(box.h - viewH) > 2) resize();
+}, 800);
 window.addEventListener("load", resize);
 window.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    saveField();   // one last snapshot before the tab goes dormant
+    saveField();
+    return;
+  }
+  if (coarsePointer()) {
+    const box = viewBox();
+    viewW = box.w;
+    viewH = box.h;
+    canvas.style.width = viewW + "px";
+    canvas.style.height = viewH + "px";
   } else {
     resize();
-    render();      // draw once immediately so the tab isn't blank while rAF ramps back up
   }
+  try { render(); } catch {}
 });
 window.addEventListener("beforeunload", () => saveField());
 // Also add a reset shortcut so R clears storage too — R already reseeds; make it clear the save

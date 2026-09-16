@@ -113,6 +113,11 @@ duplicate work between agents — split by theme.
 - **Assuming a browser tab is running full-speed.** Chrome throttles
   requestAnimationFrame in background tabs. Use screenshot cadence to
   verify sim progress, not `javascript_tool` polling.
+- **Remapping the field on every phone height twitch.** Safari and
+  Chrome hide the URL bar and fire `innerHeight` changes. Treat
+  those as CSS cover, not a `remapField`. `skipHeavy` must use
+  hysteresis; flipping nacre every other frame is the flash the
+  phone screenshot showed.
 
 ## What Jawaun cares about, in order
 

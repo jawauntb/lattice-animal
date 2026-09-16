@@ -74,16 +74,18 @@ regress any of these.
 - `R` (reseed) clears the save
 - Schema `la:field:v3` — persists `V`, `restingV`, valence, and
   gauge width; older caches are rejected
-- Visibility restore forces resize + immediate render so the tab
-  doesn't sit blank while rAF ramps back up
-- Resize remaps every mind and the gauge into the new sim size,
-  then paints immediately. Polling watches `innerWidth` /
-  `innerHeight`, not the (possibly capped) sim size, so a budget
-  cap cannot loop-clear the canvas.
+- Visibility restore on desktop remaps + paints so the tab is not
+  blank while rAF ramps back up. On a phone it only restyles the
+  canvas; it does not remap (Safari URL chrome was flashing the
+  field).
+- Resize remaps minds only when the box actually changed. Phone
+  URL-bar height jitter (<110 px) covers CSS pixels and leaves
+  the sim size alone. Polling uses `visualViewport` every 800 ms.
 - Pixel / dpr / frame budget: sim CSS is capped (1440×960,
-  2.2M backing pixels, dpr 1.5 on coarse pointers). Slow frames
-  drop expensive glows. A glass notice tells you when the field
-  was scaled or dimmed.
+  2.2M backing pixels, dpr 1.5 on coarse pointers). `skipHeavy`
+  is sticky on a phone (~4 s calm before glows return) so nacre
+  and cilia do not strobe. The working-hard notice has a 20 s
+  cooldown. `public/budget.js` holds the predicates.
 
 **Rendering**
 - Cosmic ground, drifting dust, twinkles
