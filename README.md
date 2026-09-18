@@ -249,7 +249,8 @@ The demo weaves in ideas from a survey of CIMC research documents:
 - `express` + `compression` — served statically
 - Deployed on Railway (`node server.js` at `$PORT`, `/healthz`)
 - Optional Modal L4 behind `/think` (`THINK_URL`, `THINK_TOKEN`)
-- Optional Jev behind `/decide` (`TYPESAFE_API_KEY`)
+- Optional Jev behind `/decide` — TypeSafe's System One model, run as
+  `typesafe/jev-latest` on OpenRouter (`OPENROUTER_API_KEY`)
 - Persistence: browser `localStorage` only (`la:field:v3`)
 - Phone budget: URL-bar height jitter does not remap the field.
   If a frame runs long the extra glows stay dim until the screen

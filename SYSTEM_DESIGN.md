@@ -77,11 +77,16 @@ lattice_animal/
   `?v=` busts land. Other assets: 1‑hour maxAge in prod. `/healthz`.
   `POST /think` and `GET /think/status` proxy to Modal using
   `THINK_URL`, `THINK_STATUS_URL`, `THINK_TOKEN`. 503 if unset, 504
-  on timeout. `POST /decide` and `GET /decide/status` proxy to
-  TypeSafe `POST https://api.typesafe.ai/v1/systemone` using
-  `TYPESAFE_API_KEY`. The browser sends field state only; the
-  server attaches `QUESTIONS` from `public/jev.js`. 503 `no-jev`
-  if unset. Binds `PORT`, default 3000.
+  on timeout. `POST /decide` and `GET /decide/status` proxy to Jev —
+  TypeSafe's System One model, published on OpenRouter as
+  `typesafe/jev-latest` — via OpenRouter's standard chat‑completions
+  API (`POST https://openrouter.ai/api/v1/chat/completions`) using
+  `OPENROUTER_API_KEY`. The browser sends field state only; the
+  server attaches `QUESTIONS` from `public/jev.js` inside the prompt
+  and asks for a single `{"answers": {...}}` JSON object back
+  (`response_format: json_object`). 503 `no-jev` if unset, 502
+  `jev-down` if the reply doesn't parse to `answers`. Binds `PORT`,
+  default 3000.
 - **`package.json`** — `type: module`, `start: node server.js`,
   `engines node>=20`. Runtime: `express`, `compression`. Dev: `sharp`.
 - **`railway.json`** — Nixpacks, `node server.js`, `/healthz`.
@@ -220,7 +225,8 @@ flips when a decision is live. `lifeWeights` scales wander /
 spawn / fission. `pickMorph` sets `ingressMorph` unless the
 viewer already tapped a chip (`userMorph`). Jev cannot generate
 text and cannot place a cell off the grid. `/decide` is 503
-`no-jev` without `TYPESAFE_API_KEY`.
+`no-jev` without `OPENROUTER_API_KEY` (Jev runs as `typesafe/jev-latest`
+on OpenRouter, see `server.js` above).
 
 ### Voices — `public/audio.js`
 
@@ -362,7 +368,7 @@ Emergency only: `railway up --detach` from a linked cwd. See
 `docs/railway-autodeploy.md`.
 
 Env on Railway (never commit): `THINK_URL`, `THINK_STATUS_URL`,
-`THINK_TOKEN`, `TYPESAFE_API_KEY`. Without the TypeSafe key the
+`THINK_TOKEN`, `OPENROUTER_API_KEY`. Without the OpenRouter key the
 field walks on today's heuristics and telemetry `jev` reads `off`.
 Doppler configs `jawaun-personal` and
 `research_derived_experiments` if a new secret is needed.

@@ -143,7 +143,8 @@ regress any of these.
   compete nouls gate seam ecology. Act choice blends wander /
   spawn / fission rates. Morph choice may set the morphospace
   pointer unless the viewer already tapped a chip.
-- `POST /decide` proxies to `api.typesafe.ai/v1/systemone`.
+- `POST /decide` proxies to Jev on OpenRouter (`typesafe/jev-latest`
+  via `openrouter.ai/api/v1/chat/completions`, `OPENROUTER_API_KEY`).
   Questions live on the server. No key → 503, field unchanged,
   telemetry `jev` reads `off`.
 - Jev does not generate text and does not place cells off-grid.
