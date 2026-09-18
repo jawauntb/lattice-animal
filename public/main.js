@@ -10,6 +10,7 @@ import {
   narrateGap,
 } from "/budget.js?v=18";
 import * as jev from "/jev.js?v=18";
+import * as gpu from "/gpu.js?v=19";
 
 // ─── Palette (drawn from objetd'art tissue: cool + warm, muted, luminous) ────
 const TINT = [
@@ -1021,6 +1022,11 @@ function escapeHtml(s) {
 // is the fast sensory report, gated by beta. At a seam they add or cancel.
 const WAVE_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
+// How many frames apart two commits can be and still ring as one chord.
+// Shared with the GPU pairwise pass (gpu.js) so the CPU fallback and the
+// WebGPU kinship count use the identical window.
+const CHORD_WINDOW = 3;
+
 function updateWaves(neighborsCache) {
   const minds = state.minds;
   const by = new Map();
@@ -1640,6 +1646,16 @@ function step() {
   const minds = state.minds;
   if (minds.length < 2) return;
 
+  // The two truly O(n^2) scans this frame — chord kinship at a mass-commit
+  // burst, and a cancer mind's nearest-other-animal search — run on the GPU
+  // as one thread per mind when WebGPU is available. Fire-and-forget: the
+  // result lands on each mind a frame or two later (`_gpuFrame` etc.), which
+  // is invisible for a cosmetic effect. Every consumer below still falls
+  // back to the original serial CPU scan when the result isn't fresh yet.
+  const CHORD_RADIUS = state.gauge.s * 1.6;
+  gpu.dispatchPairwise(minds, state.frame, CHORD_WINDOW, CHORD_RADIUS);
+  const gpuFresh = gpu.ready() && gpu.resultFrame() != null && (state.frame - gpu.resultFrame()) <= 3;
+
   const pts = new Float64Array(minds.length * 2);
   for (let i = 0; i < minds.length; i++) {
     pts[i * 2] = minds[i].x;
@@ -1722,13 +1738,17 @@ function step() {
     if (m.cancer) {
       m.cancerAge = (m.cancerAge || 0) + 1;
       m.V = clamp(m.V + 0.012, -1, 1);
-      let nearest = null, best = Infinity;
-      for (const o of minds) {
-        if (o === m || o.animalId < 0 || o.animalId === m.animalId) continue;
-        const d = Math.hypot(o.x - m.x, o.y - m.y);
-        if (d < best) { best = d; nearest = o; }
+      if (gpuFresh && m._gpuFrame === gpu.resultFrame() && m._gpuCancerFound) {
+        m.V = clamp(m.V + (m._gpuCancerV - m.V) * 0.04, -1, 1);
+      } else if (!gpuFresh) {
+        let nearest = null, best = Infinity;
+        for (const o of minds) {
+          if (o === m || o.animalId < 0 || o.animalId === m.animalId) continue;
+          const d = Math.hypot(o.x - m.x, o.y - m.y);
+          if (d < best) { best = d; nearest = o; }
+        }
+        if (nearest) m.V = clamp(m.V + (nearest.V - m.V) * 0.04, -1, 1);
       }
-      if (nearest) m.V = clamp(m.V + (nearest.V - m.V) * 0.04, -1, 1);
     }
     if (Math.abs(m.V - m.prevV) < 0.012) m.vStable = Math.min(240, (m.vStable || 0) + 1);
     else m.vStable = Math.max(0, (m.vStable || 0) - 2);
@@ -1916,38 +1936,33 @@ function step() {
     if (m.commitFlash > 0) m.commitFlash--;
     if (m.collapse > 0) m.collapse--;
   }
-  // Chord interference: any freshly committed mind whose kin also committed within
-  // this tick or the previous 3 gets a brighter, longer birth-flash. Truly
-  // simultaneous commits are the "chord"; staggered ones remain the "arpeggio."
-  const CHORD_WINDOW = 3;
-  const CHORD_RADIUS = state.gauge.s * 1.6;
-  for (const m of freshCommits) {
-    let kin = 1;
-    for (const o of minds) {
-      if (o === m) continue;
-      if (o.committed && state.frame - o.bornAt <= CHORD_WINDOW) {
+  // Chord interference: any mind that committed within the last CHORD_WINDOW
+  // frames brightens with every other recent commit near enough to ring as
+  // the same chord, instead of a staggered arpeggio. `kin` is a symmetric
+  // local count (mutual, recent, within CHORD_RADIUS) computed by the GPU
+  // pairwise pass above when it's fresh; the CPU fallback is the same scan,
+  // just serial, so a big mass-commit burst never costs more than one pass
+  // per mind either way.
+  for (const m of minds) {
+    if (!m.committed || !Number.isFinite(m.bornAt) || state.frame - m.bornAt > CHORD_WINDOW) continue;
+    let kin;
+    if (gpuFresh && m._gpuFrame === gpu.resultFrame() && Number.isFinite(m._gpuKin)) {
+      kin = Math.round(m._gpuKin) + 1;
+    } else {
+      kin = 1;
+      for (const o of minds) {
+        if (o === m || !o.committed || !Number.isFinite(o.bornAt) || state.frame - o.bornAt > CHORD_WINDOW) continue;
         const dx = o.x - m.x, dy = o.y - m.y;
         if (dx * dx + dy * dy < CHORD_RADIUS * CHORD_RADIUS) kin++;
       }
     }
     m.commitChord = kin;
     const flash = Math.round(45 * Math.min(2.5, 0.9 + 0.35 * kin));
-    if (state.temporalGapMode === "arpeggio") {
+    if (freshCommits.includes(m) && state.temporalGapMode === "arpeggio") {
       m._arpDelay = 8 + freshCommits.indexOf(m) * 14;
       m.commitFlash = 0;
     } else {
-      m.commitFlash = flash;
-    }
-    // Retroactively brighten the just-committed kin who fired in the window
-    for (const o of minds) {
-      if (o === m || !o.committed) continue;
-      if (state.frame - o.bornAt <= CHORD_WINDOW && o.commitChord < kin) {
-        const dx = o.x - m.x, dy = o.y - m.y;
-        if (dx * dx + dy * dy < CHORD_RADIUS * CHORD_RADIUS) {
-          o.commitChord = kin;
-          o.commitFlash = Math.max(o.commitFlash, Math.round(45 * Math.min(2.5, 0.9 + 0.35 * kin)));
-        }
-      }
+      m.commitFlash = Math.max(m.commitFlash || 0, flash);
     }
   }
 
@@ -3113,6 +3128,12 @@ function tick() {
   if (loopEl) loopEl.textContent = cs.ready ? `${cs.k.toFixed(1)}×` : "–";
   const thinkEl = el("t-think");
   if (thinkEl) thinkEl.textContent = cs.gpu ? `L4 ${cs.deepN}` : (cs.think || "local");
+  const gpuEl = el("t-gpu");
+  if (gpuEl) {
+    gpuEl.textContent = !gpu.ready()
+      ? "cpu"
+      : (gpu.resultFrame() != null && state.frame - gpu.resultFrame() <= 3 ? "webgpu" : "warming");
+  }
   const waveEl = el("t-wave");
   if (waveEl) waveEl.textContent = state.waveCoh ? state.waveCoh.toFixed(2) : "0.00";
   const jevEl = el("t-jev");
@@ -3392,6 +3413,14 @@ window.__la = Object.assign(window.__la || {}, {
     return n;
   },
   circuitStats() { return fly.stats(state.minds); },
+  gpuStats() {
+    return {
+      backend: gpu.backend(),
+      ready: gpu.ready(),
+      resultFrame: gpu.resultFrame(),
+      age: gpu.resultFrame() == null ? null : state.frame - gpu.resultFrame(),
+    };
+  },
   infect(i) {
     const m = state.minds[i];
     if (!m) return false;
@@ -3747,6 +3776,7 @@ function tryRestoreField() {
 resize();
 if (!tryRestoreField()) seed();
 fly.load();
+gpu.init();
 renderMorphospace();
 {
   const gap = document.getElementById("btn-gap");

@@ -3,7 +3,7 @@
 *Current architecture snapshot. Update this every time a file is added,
 removed, or its role shifts.*
 
-Last updated: 2026‑09‑16 (iter 19 — Jev gut-check on eat / compete / act / morph).
+Last updated: 2026‑09‑18 (iter 20 — WebGPU pairwise pass for chord kinship + cancer nearest-search).
 
 This file is the architecture you hand a collaborator. `README.md` is
 the public story. `INSTRUCTIONS_AND_INSPIRATION.md` is the aesthetic
@@ -20,9 +20,11 @@ snapshots to `localStorage` (`la:field:v3`) so a refresh keeps the
 animals for up to three days; there is no server database. A compiled
 47‑neuron fly heading circuit loops on the page. A 754‑neuron motif on
 one Modal L4 writes a delayed letter through `/think`. Traveling
-beta/gamma waves walk each polyomino and add or cancel at seams.
-Deployment is Railway via Nixpacks, sourced from
-`jawauntb/lattice-animal@main`.
+beta/gamma waves walk each polyomino and add or cancel at seams. The
+field's two O(n²) scans (chord‑commit kinship, cancer nearest‑search) run
+on a WebGPU compute pass when the browser supports it, falling back to
+the original serial CPU scan otherwise. Deployment is Railway via
+Nixpacks, sourced from `jawauntb/lattice-animal@main`.
 
 ## Repo layout
 
@@ -58,6 +60,7 @@ lattice_animal/
     ├── budget.js                      ← phone-stable resize / skipHeavy
     ├── jev.js                         ← System One questions + apply
     ├── connectome.js                  ← local reflex + /think client
+    ├── gpu.js                         ← WebGPU all‑pairs pass (chord kin, cancer scan)
     ├── audio.js                       ← voices + species policies
     ├── data/fly-cx.json               ← compiled heading motif (CC‑BY Janelia)
     ├── vendor/                        ← d3-delaunay + delaunator + predicates
@@ -154,7 +157,7 @@ lattice_animal/
 13. `tick()` — telemetry including `#t-wave` and `#t-jev`.
 14. Input — space / R / M / H / A / ? / tap / drag / long‑press.
 15. `window.__la` — pause, reseed, mute, panels, temporal gap,
-    `wave()`, `jev()`, `vStats()`, `chiStats()`, `circuitStats()`,
+    `wave()`, `jev()`, `vStats()`, `chiStats()`, `circuitStats()`, `gpuStats()`,
     wound, size, audioInfo.
 16. `jev.requestDecide` every ~2.8 s after an animal exists.
     Typed answers only. No generated text.
@@ -180,6 +183,32 @@ skipped during the opening, when `document.hidden`, and until
 
 `draw` paints a small constellation on a few thinking minds
 (capped further when `skipHeavy`).
+
+### GPU pairwise pass — `public/gpu.js`
+
+The two scans in `step()` that are genuinely O(n²) — chord‑interference
+kinship at a mass‑commit burst, and a cancer mind's nearest‑other‑animal
+search — run as a single WebGPU compute pass, one thread per mind, instead
+of a serial `for (const o of minds)` scan. `init()` feature‑detects
+`navigator.gpu`, requests an adapter/device, and compiles one compute
+pipeline; if any step fails (no WebGPU, no adapter, device lost) `ready()`
+stays false forever after and every caller keeps its original CPU loop —
+nothing else in `main.js` depends on the GPU being present.
+
+`dispatchPairwise(minds, frame, chordWindow, chordRadius)` is fire‑and‑
+forget: it uploads position/animal/committed/cancer state, dispatches
+`ceil(n/64)` workgroups, and asynchronously maps the result buffer back.
+Resolution lands a frame or two later and writes straight onto the mind
+objects (`_gpuKin`, `_gpuCancerV`, `_gpuCancerD2`, `_gpuCancerFound`,
+`_gpuFrame`) — never blocks the render loop, never stalls waiting on the
+GPU. `step()` only trusts a result within 3 frames of `resultFrame()`
+(`gpuFresh`); anything older falls back to the CPU scan for that frame.
+Telemetry `gpu` reads `webgpu` once a fresh result exists, `warming`
+just after init while the first dispatch is in flight, or `cpu` when
+WebGPU isn't available. This is deliberately scoped to the two quadratic
+scans only — the Delaunay‑neighbor gauge/force/wave passes are already
+near‑linear (bounded by average Voronoi neighbor count) and stay on the
+CPU so the emergent gauge‑negotiation behavior is untouched.
 
 ### Jev — `public/jev.js`
 
@@ -209,6 +238,8 @@ text and cannot place a cell off the grid. `/decide` is 503
 requestAnimationFrame
         ↓
    step()  if !paused
+        ↓
+gpu.dispatchPairwise (fire‑and‑forget; result lands in ~1‑2 frames)
         ↓
 Delaunay(positions) → Voronoi neighbors
         ↓
@@ -304,6 +335,7 @@ Mind = {
 | χ | peak of the concern field |
 | width | w‑max rotation family width |
 | loop | mean fly‑circuit reuse K |
+| gpu | `webgpu` / `warming` / `cpu` — chord + cancer pairwise pass backend |
 | think | `opening` / `L4 N` / `local` |
 | wave | mean beta coherence (0–1) |
 
@@ -360,7 +392,8 @@ Shipped and visible: V leak + rings + voltage‑gated bonds, χ blooms,
 valence threads that fold at commit, w‑max fan, light cones, morph
 holes + regen spawn, chord/arpeggio look, nacre, hide‑panels, two
 clocks, traveling waves, eat/compete/integrate, localStorage v3,
-narrator loci.
+narrator loci, WebGPU pairwise pass for chord kinship + cancer search
+(telemetry `gpu`, CPU fallback everywhere WebGPU is absent).
 
 Not shipped (do not describe these as live): server‑side persistent
 life while Jawaun is away; click‑to‑isolate an animal; continuous

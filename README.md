@@ -75,6 +75,7 @@ Every state is still a lattice animal: cells on a shared gauge, bonded
 | χ | peak of the concern field (1 when quiet) |
 | width | how wide the compatible rotation family still is |
 | loop | mean times the fly circuit is reused this tick |
+| gpu | `webgpu` when the browser's own GPU is running the chord/cancer pass, `cpu` otherwise |
 | think | `opening` (no GPU yet), `L4 N` (a letter landed), or `local` |
 | wave | mean beta coherence. Near 1, one pattern holds the body |
 | jev | last typed act from Jev, or `off` when no TypeSafe key |
@@ -239,6 +240,10 @@ The demo weaves in ideas from a survey of CIMC research documents:
 ## Stack
 
 - Vanilla ES modules, no build step
+- WebGPU compute pass (`public/gpu.js`) for the field's two O(n²) scans
+  — chord‑commit kinship and the cancer mind's nearest‑other‑animal
+  search — one thread per mind instead of a serial loop; silently
+  falls back to the original CPU scan wherever WebGPU is unavailable
 - `d3-delaunay` from `public/vendor/` (no CDN on the hot path) for Voronoi
 - Web Audio for procedural species voices
 - `express` + `compression` — served statically
